@@ -42,20 +42,22 @@ __all__ = [
 
 try:
     from .readers.fst.reader import FstReader as FstReader
-except Exception as _fst_import_error:
+except Exception as _exc:
+    _fst_err_msg = repr(_exc)
     class FstReader:  # type: ignore[no-redef]
         """Placeholder when pylibfst is unavailable."""
         def __init__(self, *args, **kwargs):
             raise RuntimeError(
                 'FstReader requires pylibfst.\n\n'
                 'Install it with: pip install pylibfst\n\n'
-                f'Import error: {_fst_import_error}'
+                f'Import error: {_fst_err_msg}'
             )
 
 try:
     from .readers.fsdb.npi_fsdb_reader import fsdb_runtime_available as _fsdb_runtime_available
     from .readers.fsdb.reader import FsdbReader as FsdbReader
-except Exception as _fsdb_import_error:
+except Exception as _exc:
+    _fsdb_err_msg = repr(_exc)
     _fsdb_available = False
 
     def has_fsdb_support() -> bool:
@@ -70,7 +72,7 @@ except Exception as _fsdb_import_error:
                 'FsdbReader requires the Verdi FSDB runtime (libNPI.so).\n\n'
                 'Set WAVEKIT_NPI_LIB to the library path, set VERDI_HOME to the Verdi '
                 'installation directory, or ensure libNPI.so is in LD_LIBRARY_PATH.\n\n'
-                f'Import error: {_fsdb_import_error}'  # noqa: F821
+                f'Import error: {_fsdb_err_msg}'
             )
 
     FsdbReader = _FsdbReaderStub  # type: ignore[assignment]

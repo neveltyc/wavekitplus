@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.12 - 2026-05-26
+
+### Fixed
+- signed=True now does two's-complement interpretation (not just astype(int64))
+- FstReader/FsdbReader import stubs: fix NameError on except variable cleanup
+- VCD real/realtime signals: raise NotImplementedError instead of ValueError crash
+- Empty time/cycle slice: guard against IndexError on empty waveform
+- split_bits() padding: off-by-one in last group width (width -> width-1)
+- Binary ops now check clock/time alignment via _check_alignment()
+- FST/FSDB xz_mask: raise NotImplementedError (was silently ignored)
+
 ## v0.8.11 - 2026-05-26
 
 ### Fixed

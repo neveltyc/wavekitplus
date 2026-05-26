@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.8.11-3366cc?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.8.12-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
   <img alt="Tests" src="https://img.shields.io/badge/tests-passing-22aa55?style=flat-square">
@@ -159,7 +159,7 @@ with VcdReader("axi_tb.vcd") as r:
 
 | 版本 | 亮点 |
 |:-----|:-----|
-| `0.8.11` | xz_mask 透传到 load_matched_waveforms / eval / FstReader / FsdbReader |
+| `0.8.12` | xz_mask 透传到 load_matched_waveforms / eval / FstReader / FsdbReader |
 | `0.8.2` | 修复 relative() xz_mask 长度 / __eq__ __ne__ xz_mask 合并 |
 | `0.8.1` | 修复 xz_mask 在二元运算、relative、concatenate 中的传播 |
 | `0.8.0` | 4-state x/z 掩码层 |

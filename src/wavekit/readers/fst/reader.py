@@ -176,6 +176,11 @@ class FstReader(Reader):
         if end_time is not None and end_cycle is not None:
             raise ValueError('end_time and end_cycle are mutually exclusive')
 
+        if xz_mask:
+            raise NotImplementedError(
+                'xz_mask is not yet supported for FST reader'
+            )
+
         fst_signal, requested_range = self._resolve_signal(signal)
         fst_clock, _ = self._resolve_signal(clock)
 

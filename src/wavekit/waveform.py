@@ -307,6 +307,11 @@ class Waveform:
     @staticmethod
     # @jit
     def _unsigned(value: np.ndarray, width: int):
+        if value.dtype == np.object_:
+            mask = (1 << width) - 1
+            return np.array([int(v) & mask for v in value], dtype=np.object_)
+        if width == 64:
+            return value.view(np.uint64)
         return value & ((1 << width) - 1)
 
     def as_unsigned(self) -> Waveform:
@@ -326,6 +331,19 @@ class Waveform:
     # @jit
     def _add(a, b):
         return a + b
+
+
+    def _check_alignment(self, other):
+        """Raise ValueError if other Waveform has different length/clock/time."""
+        if isinstance(other, Waveform):
+            if len(self.value) != len(other.value):
+                raise ValueError(
+                    f'waveform length mismatch: {len(self.value)} vs {len(other.value)}'
+                )
+            if not np.array_equal(self.clock, other.clock):
+                raise ValueError('waveform clock arrays are not aligned')
+            if not np.array_equal(self.time, other.time):
+                raise ValueError('waveform time arrays are not aligned')
 
     def _check_sign(self, other: WaveformOrScalar):
         if isinstance(other, Waveform) and self.signed != other.signed:
@@ -373,6 +391,7 @@ class Waveform:
 
     def __add__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_alignment(other)
         self._check_arithmetic_op_width(other)
 
         def inferred_width() -> int | None:
@@ -624,6 +643,7 @@ class Waveform:
 
     def __lshift__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_alignment(other)
         self._check_logical_op_type(other)
         if isinstance(other, float):
             raise TypeError('Can only perform logical operations on 64-bit integers')
@@ -805,6 +825,7 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         self._check_sign(other)
+        self._check_alignment(other)
         result = self.vectorized_map(
             lambda x: self._eq(x, self._get_value(other)),
             width=1,
@@ -821,6 +842,7 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         self._check_sign(other)
+        self._check_alignment(other)
         result = self.vectorized_map(
             lambda x: self._ne(x, self._get_value(other)),
             width=1,
@@ -1186,7 +1208,7 @@ class Waveform:
             if (not padding) and (width % bit_group_size != 0):
                 raise Exception('width must be a multiple of bit_group_size when padding is false')
             return [
-                self[min(i + bit_group_size - 1, width) : i]
+                self[min(i + bit_group_size - 1, width - 1) : i]
                 for i in range(0, width, bit_group_size)
             ]
         else:
@@ -1376,6 +1398,8 @@ class Waveform:
             # Analyse only the first 1000 simulation time units
             early = wave.time_slice(0, 1000)
         """
+        if len(self.value) == 0:
+            return self.copy()
         if begin_time is None:
             begin_time = int(self.time[0])
         if end_time is None:
@@ -1426,6 +1450,8 @@ class Waveform:
             # Analyse cycles 100 to 199 (exclusive end)
             window = wave.cycle_slice(100, 200)
         """
+        if len(self.value) == 0:
+            return self.copy()
         if begin_cycle is None:
             begin_cycle = int(self.clock[0])
         if end_cycle is None:

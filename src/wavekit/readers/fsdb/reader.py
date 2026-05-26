@@ -198,6 +198,11 @@ class FsdbReader(Reader):
         if end_time is not None and end_cycle is not None:
             raise ValueError('end_time and end_cycle are mutually exclusive')
 
+        if xz_mask:
+            raise NotImplementedError(
+                'xz_mask is not yet supported for FSDB reader'
+            )
+
         signal_path = signal.full_name if isinstance(signal, Signal) else signal
         clock_path = clock.full_name if isinstance(clock, Signal) else clock
 

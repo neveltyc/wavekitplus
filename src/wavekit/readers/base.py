@@ -161,6 +161,8 @@ class Reader:
             clock_offset=clock_offset,
         )
 
+        if signed and width is not None:
+            value = Waveform._signed(value, width)
         return Waveform(
             value=value,
             clock=clock,

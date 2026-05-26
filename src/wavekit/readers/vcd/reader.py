@@ -204,6 +204,12 @@ class VcdReader(Reader):
         signal_info = self._parser.signals[signal_sid]
         width = signal_info['width']
 
+        if signal_info.get('type') in ('real', 'realtime'):
+            raise NotImplementedError(
+                f"signal '{bare_signal_path}' is type {signal_info['type']}; "
+                'VCD real/realtime waveform loading is not yet supported'
+            )
+
         # Determine the lookup path (alias that matched) for range_suffix detection
         lookup_path = bare_signal_path
         for alias in signal_info['aliases']:
