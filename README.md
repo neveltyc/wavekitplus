@@ -1,372 +1,179 @@
-# wavekit-plus
+<p align="center">
+  <h1 align="center">wavekit-plus</h1>
+  <p align="center">
+    A Python library for digital waveform analysis —
+    load VCD/FST/FSDB signals as NumPy arrays, run pattern matching, and compute in one pass.
+  </p>
+</p>
 
-> **Forked from [cxzzzz/wavekit](https://github.com/cxzzzz/wavekit).** See [Why this fork?](#why-this-fork) below.
+<p align="center">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.8.1-3366cc?style=flat-square">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-46/46%20passed-22aa55?style=flat-square">
+</p>
 
-English | [中文](README_ZH.md)
+<p align="center">
+  <b>Forked from <a href="https://github.com/cxzzzz/wavekit">cxzzzz/wavekit</a></b> —
+  replacing vcdvcd with a streaming, IEEE-compliant VCD parser from
+  <a href="https://github.com/neveltyc/VCD_ANALYZER">VCD_ANALYZER</a>.
+</p>
 
-**Wavekit** is a fundamental Python library for digital waveform analysis. By seamlessly converting VCD, FST, and FSDB data into Numpy arrays, it empowers engineers to perform high-performance signal processing, protocol analysis, and automated verification with ease.
+---
 
-> 🤖 **AI Integration**: [wavekit-mcp](https://github.com/cxzzzz/wavekit-mcp) — MCP server for AI-assisted waveform analysis. Let AI load signals and run pattern matching — no manual coding required.
+## Why wavekit-plus?
 
-## ✨ Features
+The original wavekit depends on [vcdvcd](https://github.com/zylin/Verilog_VCD), which loads
+an entire VCD file into memory before you can access a single signal. It also carries
+Artistic 1.0 / GPL v1 license terms.
 
-- **Flexible Signal Extraction**: Flexible batch signal extraction via brace expansion, integer ranges, and regular expressions — load groups of related signals in one call.
-- **Rich Analysis Tools**: Numpy-like API for arithmetic, masking, bit-field manipulation, edge detection, and time/cycle slicing — compose complex signal queries in just a few lines.
-- **Pattern Matching**: NFA-based temporal pattern engine that scans waveforms in a single pass to extract protocol transactions, measure latencies, and detect timing violations.
-- **High-Performance Parsing & Storage**: VCD, FST, and FSDB readers with Numpy-backed storage for fast loading and memory efficiency, handling large simulation files with ease.
+**wavekit-plus** replaces that parser with `VCDParser` from
+[VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9:
 
-## 📦 Setup
+- **Streaming parse** — `iter_events()` yields one value change at a time. Loading one
+  signal does not pay the memory cost of loading all signals.
+- **Bit-explosion auto-reassembly** — QuestaSim's per-bit `$var` declarations are
+  automatically merged back into multi-bit buses.
+- **Extended VCD** — `$dumpports` port states are decoded to 4-state (`0`/`1`/`x`/`z`).
+- **Input hardening** — 16 resource caps defend against pathological VCDs (DoS, corruption).
+- **4-state masking** — optional `xz_mask=True` marks every cycle where x or z was present,
+  and the mask propagates through arithmetic, slicing, and filtering.
+- **Signal cache** — each signal's value-change list is read once and reused across
+  `load_waveform` calls within the same reader instance.
+- **License clarity** — dependency chain is now MIT + BSD (NumPy). No GPL or Artistic terms.
 
-wavekit-plus is a source-only fork. Install dependencies and run from source:
+All wavekit APIs, the `Waveform` class, and the `Pattern` engine are unchanged.
+Every existing test passes identically.
+
+## Setup
 
 ```bash
-# Clone with submodules
 git clone --recurse-submodules https://github.com/neveltyc/wavekitplus.git
 cd wavekitplus
+pip install numpy
 
-# Install dependencies (NumPy is required; Cython is optional for native speed)
-pip install numpy pytest
-
-# Add src to PYTHONPATH and you're ready
+# Ready to go
 export PYTHONPATH="$PWD/src:$PYTHONPATH"    # Linux / macOS
 $env:PYTHONPATH = "$PWD\src"               # PowerShell
 ```
 
-**No C compiler required** — a pure-Python fallback for the Cython `value_change` module is included.
+No C compiler needed — a pure Python fallback is included for the Cython `value_change` module.
 
-**Optional dependencies:**
-- `pip install pylibfst` — FST waveform support
-- `pip install Cython` + MSVC/GCC — build the native Cython extension for ~3x faster resampling
-- FSDB support requires the Verdi runtime (`libNPI.so`). Configure via `WAVEKIT_NPI_LIB`, `VERDI_HOME`, or `LD_LIBRARY_PATH`.
+**Optional:** `pip install pylibfst` for FST support, `Cython` for native-speed resampling.
+FSDB support requires a Verdi runtime (`libNPI.so`).
 
-## 🚀 Quick Start
-
-> The examples below use placeholder filenames such as `sim.vcd`. Replace them with the path to your own VCD, FST, or FSDB file, and adjust signal paths to match your design hierarchy.
-
-### 1. Batch Signal Extraction
-
-Use brace expansion or regular expressions to load multiple related signals in one call.
+## Quick start
 
 ```python
 from wavekit import VcdReader
 
-with VcdReader("jtag.vcd") as f:
-    # Brace expansion: load J_state and J_next in one call
-    # Returns: { ('state',): Waveform, ('next',): Waveform }
-    waves = f.load_matched_waveforms(
-        "tb.u0.J_{state,next}[3:0]",
+with VcdReader("sim.vcd") as r:
+    # Load a single signal, sampled on clock edges
+    addr = r.load_waveform("tb.dut.addr[31:0]", clock="tb.clk")
+
+    # Batch-load with brace expansion
+    waves = r.load_matched_waveforms(
+        "tb.dut.J_{state,next}[3:0]",
         clock_pattern="tb.tck",
     )
 
-    # Regex mode (@ prefix): capture groups become dict keys
-    waves = f.load_matched_waveforms(
-        r"tb.u0.@J_([a-z]+)",
-        clock_pattern="tb.tck",
-    )
-```
-
----
-
-### 2. Signal Analysis
-
-Waveforms support Numpy-style arithmetic, masking, and edge detection out of the box.
-
-```python
-import numpy as np
-from wavekit import VcdReader
-
-with VcdReader("fifo_tb.vcd") as f:
-    clock = "fifo_tb.clk"
-    depth = 8
-
-    w_ptr = f.load_waveform("fifo_tb.s_fifo.w_ptr[2:0]", clock=clock)
-    r_ptr = f.load_waveform("fifo_tb.s_fifo.r_ptr[2:0]", clock=clock)
-    wr_en = f.load_waveform("fifo_tb.s_fifo.wr_en",      clock=clock)
-
-    occupancy = (w_ptr + depth - r_ptr) % depth
-    print(f"Average occupancy: {np.mean(occupancy.value):.2f}")
-
-    # Filter to cycles where a write is active
-    write_occ = occupancy.mask(wr_en == 1)
-
-    # Detect write bursts
-    burst_cycles = wr_en.rising_edge()
-```
-
----
-
-### 3. Expression Evaluation
-
-Compute waveform expressions directly from signal path strings without loading each signal manually.
-
-```python
-from wavekit import VcdReader
-
-with VcdReader("fifo_tb.vcd") as f:
-    # Single mode: paths must each match exactly one signal
-    occupancy = f.eval(
-        "fifo_tb.s_fifo.w_ptr[2:0] - fifo_tb.s_fifo.r_ptr[2:0]",
-        clock="fifo_tb.clk",
-    )
-
-    # Zip mode: brace patterns expand per key, evaluated once per match
-    # Returns: { (0,): Waveform, (1,): Waveform, (2,): Waveform, (3,): Waveform }
-    occupancies = f.eval(
-        "tb.fifo_{0..3}.w_ptr[2:0] - tb.fifo_{0..3}.r_ptr[2:0]",
+    # Evaluate an expression directly
+    occupancy = r.eval(
+        "tb.dut.w_ptr[2:0] - tb.dut.r_ptr[2:0]",
         clock="tb.clk",
-        mode="zip",
     )
+
+    # Load with x/z detection
+    state = r.load_waveform("tb.state[2:0]", clock="tb.clk", xz_mask=True)
+    clean = state.drop_xz()  # remove cycles with unknown values
 ```
 
----
-
-### 4. Pattern Matching
-
-Describe a temporal sequence of events; the engine finds all matching transactions in one pass.
-
-**AXI-lite Read Latency**
-
-```python
-from wavekit import VcdReader, Pattern
-
-with VcdReader("axi_tb.vcd") as f:
-    clk     = "tb.clk"
-    arvalid = f.load_waveform("tb.dut.arvalid",     clock=clk)
-    arready = f.load_waveform("tb.dut.arready",     clock=clk)
-    rvalid  = f.load_waveform("tb.dut.rvalid",      clock=clk)
-    rready  = f.load_waveform("tb.dut.rready",      clock=clk)
-    rdata   = f.load_waveform("tb.dut.rdata[31:0]", clock=clk)
-
-result = (
-    Pattern()
-    .wait(arvalid & arready)   # AR handshake → start
-    .wait(rvalid  & rready)    # R  handshake → end
-    .capture("rdata", rdata)
-    .timeout(256)
-    .match()
-)
-
-valid = result.filter_valid()
-print(f"Read latencies (cycles): {valid.duration.value}")
-print(f"Read data: {valid.captures['rdata'].value}")
-```
-
-**AXI Write Burst (multi-beat)**
-
-```python
-beat = Pattern().wait(wvalid & wready).capture("beats", wdata, mode="list")
-
-result = (
-    Pattern()
-    .wait(awvalid & awready)   # AW handshake → burst start
-    .loop(beat, until=wlast)   # collect beats until wlast
-    .timeout(512)
-    .match()
-)
-
-for i, inst in enumerate(result.filter_valid()):
-    print(f"Burst {i}: {len(inst.captures['beats'])} beats")
-```
-
-**Stall Detection**
-
-```python
-stall = valid & (ready == 0)
-
-result = (
-    Pattern()
-    .wait(stall.rising_edge())             # stall begins
-    .loop(Pattern().delay(1), when=stall)  # wait while stalling
-    .match()
-)
-
-stalls = result.filter_valid()
-print(f"Stall durations: {stalls.duration.value} cycles")
-```
-
----
-
-## 📖 API Reference
+## Core API
 
 ### Reader
 
 | Method | Description |
-|--------|-------------|
-| `VcdReader(file)` / `FstReader(file)` / `FsdbReader(file)` | Open a waveform file. Use as a context manager. `FsdbReader` requires Verdi runtime (`WAVEKIT_NPI_LIB`, `VERDI_HOME`, or `LD_LIBRARY_PATH`). |
-| `reader.load_waveform(signal, clock, ...)` | Load one signal sampled on every clock edge. Returns `Waveform`. |
-| `reader.load_matched_waveforms(pattern, clock_pattern, ...)` | Batch-load signals matching a brace/regex pattern. Returns `dict[tuple, Waveform]`. |
-| `reader.eval(expr, clock, mode='single'\|'zip', ...)` | Evaluate an arithmetic expression with embedded signal paths. |
-| `reader.get_matched_signals(pattern)` | Resolve a pattern to signal paths without loading data. |
-| `reader.top_scope_list()` | Return root `Scope` nodes of the signal hierarchy. |
+|:-------|:------------|
+| `VcdReader(file)` | Open a VCD file. Supports context manager. |
+| `load_waveform(signal, clock, ...)` | Load one signal sampled on clock edges. Returns `Waveform`. |
+| `load_matched_waveforms(pattern, clock_pattern, ...)` | Batch-load signals matching a brace/regex pattern. |
+| `eval(expr, clock, mode="single"\|"zip")` | Evaluate an expression with embedded signal paths. |
+| `get_matched_signals(pattern)` | Resolve a pattern to `Signal` objects without loading data. |
+| `top_scope_list()` | Return root `Scope` nodes of the hierarchy. |
 
-**Pattern syntax** used in signal paths:
-
-| Syntax | Example | Effect |
-|--------|---------|--------|
-| `{a,b,c}` | `sig_{read,write}` | Enumerate named variants |
-| `{N..M}` | `fifo_{0..3}.ptr` | Integer range |
-| `{N..M..step}` | `lane_{0..6..2}` | Stepped range |
-| `@<regex>` | `@([a-z]+)_valid` | Regex with capture groups |
-| `$ModName` | `tb.$fifo_unit.ptr` | Match a direct-child scope by module/definition name (FSDB only) |
-| `$$ModName` | `tb.$$fifo_unit.ptr` | Match any-depth descendant scope by module/definition name (FSDB only) |
-
----
+**Signal path patterns:** `{a,b}` enumerates, `{0..7}` ranges, `@([a-z]+)` regex captures.
 
 ### Waveform
 
-A `Waveform` wraps three parallel numpy arrays (`.value`, `.clock`, `.time`). All operations return a new `Waveform`.
+A `Waveform` wraps three parallel NumPy arrays: `.value`, `.clock`, `.time`.
 
-**Arithmetic & comparison**: `+`, `-`, `*`, `//`, `%`, `**`, `/`, `&`, `|`, `^`, `~`, `==`, `!=`, `<<`, `>>`
+| Category | Operations |
+|:---------|:-----------|
+| **Arithmetic** | `+` `-` `*` `//` `%` `**` `/` `&` `|` `^` `~` `<<` `>>` `==` `!=` |
+| **Filtering** | `.mask(cond)`, `.filter(fn)`, `.drop_xz()` |
+| **Slicing** | `.time_slice(t0, t1)`, `.cycle_slice(c0, c1)`, `.slice(i0, i1)`, `.take(indices)` |
+| **Edges** | `.rising_edge()`, `.falling_edge()` (1-bit only) |
+| **Transform** | `.map(fn)`, `.unique_consecutive()`, `.compress()`, `.downsample(n, fn)` |
+| **Bits** | `wave[7:0]` (bit slice), `.split_bits(n)`, `Waveform.concatenate([a,b])` |
+| **Shift** | `.ahead(n)`, `.back(n)`, `.relative(offset)` |
+| **4-state** | `.has_xz`, `.xz_cycles`, `.drop_xz()` |
 
-**Filtering & slicing**
+### Pattern engine
 
-| Method | Description |
-|--------|-------------|
-| `wave.mask(mask)` | Keep samples where a boolean Waveform or array is True |
-| `wave.filter(fn)` | Keep samples where `fn(value)` is True |
-| `wave.cycle_slice(begin, end)` | Trim to clock cycle range `[begin, end)` |
-| `wave.time_slice(begin, end)` | Trim to simulation time range |
-| `wave.slice(begin_idx, end_idx)` | Trim by array index |
-| `wave.take(indices)` | Select samples at given indices |
-
-**Transformation**
-
-| Method | Description |
-|--------|-------------|
-| `wave.map(fn, width, signed)` | Element-wise transform |
-| `wave.unique_consecutive()` | Remove consecutive duplicates |
-| `wave.downsample(chunk, fn)` | Aggregate into chunks |
-| `wave.as_signed()` / `wave.as_unsigned()` | Reinterpret signedness |
-
-**Bit manipulation**
-
-| Method / Syntax | Description |
-|-----------------|-------------|
-| `wave[high:low]` | Extract bit field (Verilog convention, returns unsigned) |
-| `wave[n]` | Extract single bit |
-| `wave.split_bits(n)` | Split into n-bit groups (LSB first) |
-| `Waveform.concatenate([w0, w1, ...])` | Concatenate (w0 = LSB) |
-| `wave.bit_count()` | Population count |
-
-**Edge detection** (1-bit only)
-
-| Method | Description |
-|--------|-------------|
-| `wave.rising_edge()` | True at 0→1 transitions |
-| `wave.falling_edge()` | True at 1→0 transitions |
-
-**Relative time access**
-
-| Method | Description |
-|--------|-------------|
-| `wave.relative(offset, pad, pad_value)` | Shift by *offset* cycles (positive = future, negative = past) |
-| `wave.ahead(n, pad, pad_value)` | Look *n* cycles into the future (shorthand for `relative(n)`) |
-| `wave.back(n, pad, pad_value)` | Look *n* cycles into the past (shorthand for `relative(-n)`) |
-
-`pad` controls boundary handling: `'repeat'` (default) pads with the first/last value, `'value'` pads with a given `pad_value`.
+Describe a temporal sequence; the NFA engine finds all matches in one pass.
 
 ```python
-# Rising edge detection
-rising = (wave == 0) & wave.ahead()
-
-# Compare current vs 3 cycles ago
-changed = wave != wave.back(3)
-```
-
----
-
-### Pattern
-
-| Method | Description |
-|--------|-------------|
-| `.wait(cond, *, require=None, channel=None, tick=True)` | Block until `cond` is True. `require` is checked each waiting cycle (failure → `REQUIRE_VIOLATED`). `channel` binds the wait to a shared FIFO consumer group (see [Channels](#channels) below). `tick=False` matches on the current cycle without consuming it. |
-| `.delay(n, *, require=None)` | Advance `n` cycles. `delay(0)` is a no-op. `require` must hold every cycle. |
-| `.capture(name, signal, *, mode='last')` | Record signal value at current cycle. `mode='last'` (default) overwrites; `'first'` keeps the first write; `'list'` appends to a list. |
-| `.require(cond)` | Assert condition; fail with `REQUIRE_VIOLATED` if False. |
-| `.loop(body, *, until=None, when=None)` | `until`: do-while (exit when True after body). `when`: while (exit when False before body). |
-| `.repeat(body, n)` | Execute body exactly `n` times. `n` may be a callable. |
-| `.branch(cond, true_body, false_body)` | Conditional branch. |
-| `.timeout(max_cycles)` | Terminate unfinished instances with `TIMEOUT`. |
-| `.match(start_cycle=None, end_cycle=None)` | Run the engine; return `MatchResult`. |
-
-**Channels**
-
-A `Channel` is an identity object representing a shared FIFO consumer group: at most one in-flight pattern instance may consume per cycle. Each `wait()` step has its own implicit channel, so multiple instances of the same pattern automatically serialize one-per-cycle on that step. Pass an explicit `Channel` (or `callable(index, captures) -> Channel`) when you need to override the default serialization — typically when events arrive on physically parallel buses (multi-bank memory, multi-lane retire) and several instances should consume *concurrently* by routing each to its own per-key channel.
-
-```python
-from collections import defaultdict
-from wavekit import Channel, Pattern
-
-# Multi-bank cache: each bank has its own response port, so two banks
-# can return data in the *same* cycle. Without partitioning, the default
-# serialization rule would force one instance to wait an extra cycle.
-# A per-bank Channel lets each in-flight read consume from its own bank.
-banks = defaultdict(Channel)
+from wavekit import Pattern
 
 result = (
     Pattern()
-    .wait(req_valid)
-    .capture('bank', req_addr & 1)
-    .wait(
-        lambda i, cap: bank_valid[cap['bank']].value[i],
-        channel=lambda i, cap: banks[cap['bank']],
-    )
-    .capture('rdata',
-        lambda i, cap: bank_data[cap['bank']].value[i])
+    .wait(arvalid & arready)    # wait for AR handshake
+    .wait(rvalid & rready)      # wait for R handshake
+    .capture("rdata", rdata)    # record read data
+    .timeout(256)
     .match()
 )
+
+for m in result.filter_valid():
+    print(f"Latency: {m.duration.value} cycles, data: {m.captures['rdata'].value}")
 ```
 
-**`MatchResult`**
+| Step | Description |
+|:-----|:------------|
+| `.wait(cond)` | Block until condition is true. |
+| `.delay(n)` | Advance n cycles. |
+| `.capture(name, signal)` | Record signal value. |
+| `.require(cond)` | Assert condition; fail with `REQUIRE_VIOLATED`. |
+| `.loop(body, until=\|when=)` | Repeat body until/when condition. |
+| `.repeat(body, n)` | Execute body n times. |
+| `.branch(cond, T, F)` | Conditional branch. |
+| `.timeout(max)` | Mark unfinished instances as `TIMEOUT`. |
+| `.match()` | Run the engine; returns `MatchResult` with `.start`, `.end`, `.duration`, `.captures`, `.filter_valid()`. |
 
-| Field | Description |
-|-------|-------------|
-| `.start` / `.end` | Start and end cycle of each match (both inclusive). |
-| `.duration` | `end - start + 1` cycles. |
-| `.status` | `MatchStatus.OK`, `TIMEOUT`, or `REQUIRE_VIOLATED`. |
-| `.captures` | `dict[str, Waveform]` of captured values. |
-| `.filter_valid()` | Return only `OK` matches. |
+## Version history
 
----
+| Version | Highlight |
+|:--------|:----------|
+| `0.8.1` | Fix xz_mask propagation in binary ops, relative, concatenate |
+| `0.8.0` | 4-state x/z masking layer |
+| `0.7.2` | Signal value-change cache (single-scan batch loading) |
+| `0.7.1` | Code hygiene + comprehensive test suite |
+| `0.7.0` | Replace vcdvcd with VCD_ANALYZER VCDParser |
 
-## 🛠️ Development
+Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### Setup
+## Tests
 
 ```bash
-git clone --recurse-submodules https://github.com/neveltyc/wavekitplus.git
-cd wavekitplus
-pip install numpy pytest
+PYTHONPATH=src python tests/run_tests.py
 ```
 
-### Running tests
+46 tests covering VCDParser, VcdReader, iverilog-generated VCDs, cache layer, xz_mask,
+and edge cases. No pytest required.
 
-```bash
-# Set PYTHONPATH and run
-PYTHONPATH=src pytest tests/ -v --ignore=tests/test_examples.py --ignore=tests/test_fstreader.py
-```
+## License
 
-Tests that require `make` / Icarus Verilog / `pylibfst` are skipped on machines without those tools.
+MIT — see [LICENSE](LICENSE). The embedded VCD parser (`src/wavekit/readers/vcd/vcd_parser.py`)
+is adapted from [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9, also MIT.
 
-### Building the Cython extension (optional)
-
-```bash
-pip install Cython setuptools
-python build.py
-```
-
-## Why this fork?
-
-**wavekit-plus** replaces the [vcdvcd](https://github.com/zylin/Verilog_VCD) VCD parser with [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER)'s `VCDParser`, bringing:
-
-- **Streaming parse** -- `iter_events()` yields events one at a time instead of loading the entire file into memory.
-- **Extended VCD support** -- `$dumpports` port-state characters decoded to 4-state (`0`/`1`/`x`/`z`).
-- **Bit-explosion auto-reassembly** -- QuestaSim per-bit declarations merged back into multi-bit buses.
-- **Input hardening** -- Resource caps against pathological VCDs without crashing.
-- **License clarity** -- Removes vcdvcd (Artistic 1.0 / GPL v1); now pure MIT + BSD (NumPy).
-
-All wavekit APIs, the `Waveform` class, and the `Pattern` engine are untouched. Tests pass identically.
-
-## 📄 License
-
-MIT License. See [LICENSE](./LICENSE). The embedded VCD parser (`src/wavekit/readers/vcd/vcd_parser.py`) is adapted from [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9 (also MIT).
+[中文说明](README_ZH.md)
