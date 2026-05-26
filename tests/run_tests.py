@@ -1,5 +1,5 @@
 """Comprehensive test suite for wavekit-plus. Self-contained, no pytest needed."""
-import os, sys, subprocess, traceback, pathlib
+import os, sys, subprocess, traceback, pathlib, shutil
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
 import numpy as np
 
@@ -235,9 +235,12 @@ def _generate_and_test(example_name, tb_file, vcd_name):
     if vvp.exists():
         vvp.unlink()
 
-t('scoreboard VCD', lambda: _generate_and_test('scoreboard', 'fifo_tb.sv', 'scoreboard_tb.vcd'))
-t('fifo_latency VCD', lambda: _generate_and_test('fifo_latency', 'fifo_tb.sv', 'fifo_latency_tb.vcd'))
-t('fifo_occupancy VCD', lambda: _generate_and_test('fifo_occupancy', 'fifo_tb.sv', 'fifo_occupancy_tb.vcd'))
+if shutil.which('iverilog') and shutil.which('vvp'):
+    t('scoreboard VCD', lambda: _generate_and_test('scoreboard', 'fifo_tb.sv', 'scoreboard_tb.vcd'))
+    t('fifo_latency VCD', lambda: _generate_and_test('fifo_latency', 'fifo_tb.sv', 'fifo_latency_tb.vcd'))
+    t('fifo_occupancy VCD', lambda: _generate_and_test('fifo_occupancy', 'fifo_tb.sv', 'fifo_occupancy_tb.vcd'))
+else:
+    print('  SKIP  iverilog tests (iverilog/vvp not found)')
 
 print()
 print('--- Edge cases ---')

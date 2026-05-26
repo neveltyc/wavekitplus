@@ -103,14 +103,14 @@ def _parse_timescale(text):
     IEEE 1364-2005 18.2.3.8 only allows 1, 10, or 100 as the number, but
     we accept any positive integer for lenience. A zero, missing, or
     pathologically long number falls back to 1e-12 (1 ps) -- the standard's
-    default -- to avoid downstream division-by-zero in parse_time and CPU
+    default -- to avoid downstream division-by-zero in time parsing and CPU
     DoS from int() on huge digit strings (Python 3.9 is O(n^2)).
     """
     m = re.search(r'(\d+)\s*(fs|ps|ns|us|ms|s)', text)
     if not m:
         return 1e-12
     digits = m.group(1)
-    # Length cap matches parse_time's MAX_TIME_ARG_LEN. The standard allows
+    # Length cap matches MAX_TIME_ARG_LEN. The standard allows
     # only 1/10/100 (<=3 digits), so anything multi-line absurd is corruption.
     if len(digits) > MAX_TIME_ARG_LEN:
         return 1e-12
@@ -124,16 +124,6 @@ def _parse_timescale(text):
 class _VCDResourceError(RuntimeError):
     """Raised when a VCD input exceeds configured resource limits.
     Surfaced in main() as a CLI error, no Python traceback."""
-
-
-
-def _check_time_range(ticks, original):
-    if ticks < 0:
-        raise _TimeParseError('time must be non-negative; got {!r}'.format(original))
-    if ticks > MAX_TIME_TICKS:
-        raise _TimeParseError(
-            'time value too large; got {!r}, max ticks is {}'.format(original, MAX_TIME_TICKS))
-    return ticks
 
 
 
@@ -192,7 +182,7 @@ def _safe_int_digits(s):
 def _clamp_overwide_logic_value(value, info):
     """Preserve clean 4-state state while rejecting malformed over-wide dumps.
 
-    Legal VCD writers may omit redundant MSB bits; fmt_val() and condition
+    Legal VCD writers may omit redundant MSB bits; value formatting and condition
     matching already left-extend short values. A value longer than the
     declared width is malformed. Do not truncate it to the LSBs: that would
     turn corrupt input into a plausible-looking numeric value. Instead,
@@ -355,7 +345,7 @@ class VCDParser:
                                     continue
                                 idx = 2
                             # Hazard 1 mitigation: refuse pathological widths
-                            # before they reach fmt_val (which would try to
+                            # before they reach value formatting (which would try to
                             # allocate `pad * (width - len(value))` bytes).
                             # Real signals never approach MAX_SIGNAL_WIDTH.
                             if w <= 0 or w > MAX_SIGNAL_WIDTH:
@@ -796,7 +786,7 @@ class VCDParser:
                 sym, val = parsed
 
                 # Catch-up before t0: update bit_state only, don't emit.
-                # Standalone state is owned by callers (e.g. _build_snapshot
+                # Standalone state is owned by callers (e.g. downstream consumers
                 # accumulates it from yielded events), so nothing to do here
                 # for the standalone case -- the continue is correct.
                 if cur_t < t0:
@@ -901,8 +891,6 @@ class VCDParser:
 
 
 # -- Subcommands -------------------------------------------------------------
-
-_DEFAULT_LIMIT = 200
 
 
 

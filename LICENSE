@@ -19,3 +19,11 @@
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE
+
+---
+
+The VCD parser component (src/wavekit/readers/vcd/vcd_parser.py)
+is adapted from VCD_ANALYZER (https://github.com/neveltyc/VCD_ANALYZER)
+v1.3.9, also under MIT License.
+
+Copyright (c) 2026 neveltyc

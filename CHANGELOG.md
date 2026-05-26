@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.7.0 - 2026-05-26
+
+### Changed
+- Replace vcdvcd dependency with VCD_ANALYZER VCDParser (streaming, IEEE-compliant)
+- Remove Artistic 1.0 / GPL v1 license from dependency chain
+
+### Added
+- QuestaSim bit-exploded bus auto-reassembly
+- Extended VCD port state support ($dumpports)
+- Input defense: 16 resource limits against DoS/malicious VCD
+- Streaming parse via iter_events() with sids filtering
+
+### Removed
+- vcdvcd dependency (replaced by embedded VCDParser)
+
 ## Unreleased
 
 ## v0.6.1 - 2026-05-23
