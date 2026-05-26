@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.8.1 - 2026-05-26
+
+### Fixed
+- Bug 1: dual-operand arithmetic now merges xz_mask from both waveforms (affects +, -, *, /, //, %, &, |, ^, <<, >>)
+- Bug 2: relative() / ahead() / back() now propagate xz_mask with the same shift/pad logic as value
+- Bug 3: concatenate() now OR-merges xz_masks from all input waveforms
+
+### Added
+- Waveform._merge_xz_mask() static helper for centralized mask merging
+- 3 regression tests (dual-operand merge, relative propagation, concatenate merge)
+
 ## v0.8.0 - 2026-05-26
 
 ### Added

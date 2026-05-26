@@ -40,7 +40,7 @@ t('import', lambda: __import__('wavekit.readers.vcd.vcd_parser', fromlist=['VCDP
 
 # Module-level imports for reuse
 from wavekit.readers.vcd.vcd_parser import VCDParser, _VCDResourceError
-from wavekit import VcdReader
+from wavekit import VcdReader, Waveform, Signal
 
 t('parse jtag header',
    lambda: (p := VCDParser(str(JTAG)),
@@ -420,6 +420,44 @@ def _test_xz_mask_xz_cycles():
     assert len(cycles) > 0
     assert np.array_equal(cycles, w.clock[w.xz_mask])
 t('xz_cycles matches clock[mask]', _test_xz_mask_xz_cycles)
+
+
+def _test_xz_mask_dual_operand_merge():
+    """Bug 1: xz_mask OR-merges from both operands in binary ops."""
+    r = VcdReader(str(XZ_VCD))
+    a = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    # Manually create a second waveform with complementary xz_mask
+    b = Waveform(value=a.value.copy(), clock=a.clock.copy(), time=a.time.copy(),
+                 signal=a.signal, xz_mask=~a.xz_mask)
+    c = a + b
+    assert c.xz_mask is not None
+    assert np.all(c.xz_mask), 'merge should OR both masks (one is ~, so all True)'
+t('xz_mask dual-operand merge (Bug 1)', _test_xz_mask_dual_operand_merge)
+
+def _test_xz_mask_relative_survives():
+    """Bug 2: xz_mask survives relative()/ahead()/back()."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    shifted = w.ahead(2)
+    assert shifted.xz_mask is not None
+    assert len(shifted.xz_mask) == len(shifted.value)
+    # ahead shifts forward; xz_mask bits should shift too
+    # Simple check: value shifted, mask shifted alongside
+    back = w.back(1)
+    assert back.xz_mask is not None
+    assert len(back.xz_mask) == len(back.value)
+t('xz_mask survives relative/ahead/back (Bug 2)', _test_xz_mask_relative_survives)
+
+def _test_xz_mask_concatenate_merge():
+    """Bug 3: concatenate() merges xz_masks from all inputs."""
+    r = VcdReader(str(XZ_VCD))
+    a = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    b = Waveform(value=a.value.copy(), clock=a.clock.copy(), time=a.time.copy(),
+                 signal=Signal('', '', 1, None, False), xz_mask=~a.xz_mask)
+    c = Waveform.concatenate([a, b])
+    assert c.xz_mask is not None
+    assert np.all(c.xz_mask), 'concatenate should OR all input masks'
+t('xz_mask concatenate merge (Bug 3)', _test_xz_mask_concatenate_merge)
 
 print()
 print('=' * 60)

@@ -146,6 +146,16 @@ class Waveform:
             return self.copy()
         return self.mask(~self.xz_mask)
 
+    @staticmethod
+    def _merge_xz_mask(result: Waveform, other) -> Waveform:
+        """Merge xz_mask from other Waveform into result. Modifies result in place."""
+        if isinstance(other, Waveform) and other.xz_mask is not None:
+            if result.xz_mask is not None:
+                result.xz_mask = result.xz_mask | other.xz_mask
+            else:
+                result.xz_mask = other.xz_mask.copy()
+        return result
+
     def unique_consecutive(self) -> Waveform:
         """Remove consecutive duplicate values, keeping the first occurrence.
 
@@ -361,11 +371,12 @@ class Waveform:
 
         new_width = self._infer_arithmetic_op_width(inferred_width)
 
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._add(x, self._get_value(other)),
             width=new_width,
             signed=self.signed,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __radd__(self, other: WaveformOrScalar) -> Waveform:
         return self.__add__(other)
@@ -383,11 +394,12 @@ class Waveform:
 
         new_width = self._infer_arithmetic_op_width(inferred_width)
 
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._sub(x, self._get_value(other)),
             width=new_width,
             signed=self.signed,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rsub__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
@@ -397,11 +409,12 @@ class Waveform:
 
         new_width = self._infer_arithmetic_op_width(inferred_width)
 
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._sub(self._get_value(other), x),
             width=new_width,
             signed=self.signed,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -419,11 +432,12 @@ class Waveform:
 
         new_width = self._infer_arithmetic_op_width(inferred_width)
 
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._mul(x, self._get_value(other)),
             width=new_width,
             signed=self.signed,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rmul__(self, other: WaveformOrScalar) -> Waveform:
         return self.__mul__(other)
@@ -437,23 +451,27 @@ class Waveform:
         self._check_sign(other)
         new_value = self._truediv(self.value, self._get_value(other))
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', None, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rtruediv__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
         new_value = self._truediv(self._get_value(other), self.value)
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', None, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -465,24 +483,28 @@ class Waveform:
         new_width = self._infer_arithmetic_op_width(lambda: self.width)
         new_value = self._floordiv(self.value, self._get_value(other))
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rfloordiv__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
         new_width = self._infer_arithmetic_op_width(lambda: self._get_width(other))
         new_value = self._floordiv(self._get_value(other), self.value)
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -495,12 +517,14 @@ class Waveform:
 
         new_value = self._mod(self.value, self._get_value(other))
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rmod__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
@@ -508,12 +532,14 @@ class Waveform:
 
         new_value = self._mod(self._get_value(other), self.value)
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -526,12 +552,14 @@ class Waveform:
 
         new_value = self._pow(self.value, self._get_value(other))
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
         return cast(Any, other).__pow__(self)
@@ -595,12 +623,14 @@ class Waveform:
             self._get_value(other),
         )
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
         return self.__lshift__(other)
@@ -626,12 +656,14 @@ class Waveform:
 
         new_value = self._rshift(self.value, self._get_value(other))
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rrshift__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         self._check_sign(other)
@@ -649,12 +681,14 @@ class Waveform:
 
         new_value = self._rshift(self.value, self._get_value(other))
 
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -664,11 +698,12 @@ class Waveform:
     def __and__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
         new_width = self._infer_logical_op_width(other)
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._and(x, self._get_value(other)),
             width=new_width,
             signed=False,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rand__(self, other: WaveformOrScalar) -> Waveform:
         return self.__and__(other)
@@ -681,9 +716,10 @@ class Waveform:
     def __or__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         self._check_sign(other)
         new_width = self._infer_logical_op_width(other)
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._or(x, self._get_value(other)), width=new_width, signed=False
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __ror__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self.__or__(other, width)
@@ -696,11 +732,12 @@ class Waveform:
     def __xor__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         self._check_sign(other)
         new_width = self._infer_logical_op_width(other)
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._xor(x, self._get_value(other)),
             width=new_width,
             signed=False,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     def __rxor__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self.__xor__(other, width)
@@ -1091,7 +1128,7 @@ class Waveform:
             if sum(bit_group_size) != width:
                 raise Exception(
                     'the sum of the bit_group_size must be equal to the width when padding == False'
-                )
+        )
 
             res = []
             start_bit = 0
@@ -1146,11 +1183,19 @@ class Waveform:
                 raise ValueError('width is None')
             new_value = ((new_value << w.width) | w.value).astype(dtype)
 
+        all_masks = [w.xz_mask for w in waves if w.xz_mask is not None]
+        merged_mask = None
+        if all_masks:
+            merged_mask = all_masks[0].copy()
+            for m in all_masks[1:]:
+                merged_mask |= m
+
         return Waveform(
             value=new_value,
             clock=np.copy(waves[0].clock),
             time=np.copy(waves[0].time),
             signal=Signal('', '', concat_width, None, False),
+            xz_mask=merged_mask,
         )
 
     @staticmethod
@@ -1412,12 +1457,25 @@ class Waveform:
                 ]
             )
 
-        return Waveform(
+        result = Waveform(
             value=value_padded,
             clock=self.clock.copy(),
             time=self.time.copy(),
             signal=dataclasses.replace(self.signal),
         )
+        if self.xz_mask is not None:
+            if offset > 0:
+                xz_pad = self.xz_mask[-1] if pad == "repeat" else False
+                remaining = self.xz_mask[offset:]
+                xz_shifted = np.concatenate([remaining, np.full(offset, xz_pad, dtype=np.bool_)])
+            elif offset < 0:
+                xz_pad = self.xz_mask[0] if pad == "repeat" else False
+                remaining = self.xz_mask[:len(self.xz_mask) + offset]
+                xz_shifted = np.concatenate([np.full(-offset, xz_pad, dtype=np.bool_), remaining])
+            else:
+                xz_shifted = self.xz_mask.copy()
+            result.xz_mask = xz_shifted
+        return result
 
     def ahead(
         self,
