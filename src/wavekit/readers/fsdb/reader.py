@@ -191,6 +191,7 @@ class FsdbReader(Reader):
         end_time: int | None = None,
         begin_cycle: int | None = None,
         end_cycle: int | None = None,
+        xz_mask: bool = False,
     ) -> Waveform:
         if begin_time is not None and begin_cycle is not None:
             raise ValueError('begin_time and begin_cycle are mutually exclusive')

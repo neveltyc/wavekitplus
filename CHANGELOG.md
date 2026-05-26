@@ -9,7 +9,7 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Bug 6: load_matched_waveforms and eval now accept and forward xz_mask parameter
-- Cosmetic: fix split_bits closing bracket indentation regression from v0.8.0
+- Bug 7: FstReader and FsdbReader load_waveform signatures synced with xz_mask parameter
 
 ## v0.8.2 - 2026-05-26
 
