@@ -4,7 +4,13 @@ from contextlib import contextmanager
 
 import pytest
 
+import shutil
 
+
+pytestmark = pytest.mark.skipif(
+    shutil.which('make') is None,
+    reason='make not available',
+)
 # Helper context manager to change working directory
 @contextmanager
 def change_dir(destination):

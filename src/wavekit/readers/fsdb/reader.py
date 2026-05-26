@@ -13,7 +13,7 @@ from ...scope import Scope
 from ...signal import Signal, SignalCompositeType
 from ...waveform import Waveform
 from ..base import Reader
-from ..edge_detect import compute_clock_edge_mask
+from ..edge_detect import select_clock_edges
 from .npi_fsdb_reader import (
     NPI_FSDB_CT_ARRAY,
     NPI_FSDB_CT_RECORD,
@@ -227,10 +227,18 @@ class FsdbReader(Reader):
             xz_value=0,
         )
 
-# Determine clock edge timestamps for the sampling edge
-        sample_value = 1 if sample_on_posedge else 0
-        edge_mask = compute_clock_edge_mask(all_clock_changes, sample_on_posedge)
-        clock_edge_times = all_clock_changes[edge_mask, 0]
+        # Determine clock edge timestamps for the sampling edge
+        clock_w = clock.width if isinstance(clock, Signal) else 0
+        if clock_w == 0 and isinstance(clock, str):
+            clock_info = self.get_matched_signals(clock.split('.')[-1])
+            if clock_info:
+                clock_w = next(iter(clock_info.values())).width
+        edge_mask, clock_edge_times = select_clock_edges(
+            all_clock_changes,
+            sample_on_posedge=sample_on_posedge,
+            clock_width=clock_w if clock_w else 1,
+            clock_name=clock_path,
+        )
 
         # Convert begin_cycle/end_cycle to begin_time/end_time
         if begin_cycle is not None:

@@ -248,6 +248,7 @@ class Waveform:
             valid_data = data.mask(valid == 1)   # keep only cycles where valid is high
         """
         if isinstance(mask, Waveform):
+            self._check_alignment(mask)
             if not (mask.width == 1 or mask.value.dtype == np.bool_):
                 raise TypeError('mask requires waveform with width 1 or boolean dtype')
             bool_mask = mask.value.astype(np.bool_)
@@ -419,6 +420,7 @@ class Waveform:
 
     def __sub__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
 
         def inferred_width() -> int | None:
             return self._optional_max_width(other)
@@ -434,6 +436,7 @@ class Waveform:
 
     def __rsub__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
 
         def inferred_width() -> int | None:
             return self._optional_max_width(other)
@@ -454,6 +457,7 @@ class Waveform:
 
     def __mul__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
 
         def inferred_width() -> int | None:
             other_width = self._get_width(other)
@@ -511,6 +515,7 @@ class Waveform:
 
     def __floordiv__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
         new_width = self._infer_arithmetic_op_width(lambda: self.width)
         new_value = self._floordiv(self.value, self._get_value(other))
 
@@ -544,6 +549,7 @@ class Waveform:
 
     def __mod__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
         new_width = self._infer_arithmetic_op_width(lambda: self.width)
 
         new_value = self._mod(self.value, self._get_value(other))
@@ -579,6 +585,7 @@ class Waveform:
 
     def __pow__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
         new_width = self._infer_arithmetic_op_width(lambda: 64)
 
         new_value = self._pow(self.value, self._get_value(other))
@@ -677,7 +684,7 @@ class Waveform:
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
         elif self.width and isinstance(other, int):
-            max_shift = int(np.max(self.value))
+            max_shift = int(np.max(self.value)) if len(self.value) else 0
             new_width = max(other.bit_length() + max_shift, self.width)
         else:
             new_width = self.width

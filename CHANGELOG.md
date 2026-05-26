@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.14 - 2026-05-26
+
+### Fixed
+- signed=True + subrange: bit-sliced signed signals no longer crash (signed conversion after slice)
+- Waveform.mask(mask_waveform): added clock/time alignment check
+- __rlshift__: guard empty waveform against np.max() on zero-size array
+- width>64 arithmetic: _check_arithmetic_op_width added to sub, mul, floordiv, mod, pow
+- __rpow__: add missing _merge_xz_mask call
+- pytest: external deps (make, pylibfst, iverilog) correctly skipped in CI
+
 ## v0.8.13 - 2026-05-26
 
 ### Fixed

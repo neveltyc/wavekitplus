@@ -12,7 +12,7 @@ from ...signal import Signal
 from ...waveform import Waveform
 from ..base import Reader
 from ..pattern_parser import split_by_range_expr
-from ..edge_detect import compute_clock_edge_mask
+from ..edge_detect import select_clock_edges
 
 
 @dataclass
@@ -185,8 +185,12 @@ class FstReader(Reader):
         fst_signal, requested_range = self._resolve_signal(signal)
         fst_clock, _ = self._resolve_signal(clock)
         all_clock_changes = self._load_value_change(fst_clock, xz_value=0)
-        edge_mask = compute_clock_edge_mask(all_clock_changes, sample_on_posedge)
-        clock_edge_times = all_clock_changes[edge_mask, 0]
+        edge_mask, clock_edge_times = select_clock_edges(
+            all_clock_changes,
+            sample_on_posedge=sample_on_posedge,
+            clock_width=fst_clock.width,
+            clock_name=clock_path,
+        )
 
         if begin_cycle is not None:
             if not (0 <= begin_cycle < len(clock_edge_times)):
@@ -236,7 +240,7 @@ class FstReader(Reader):
             signal_value_change,
             windowed_clock_changes,
             width=fst_signal.width,
-            signed=signed,
+            signed=False,
             sample_on_posedge=sample_on_posedge,
             signal=fst_signal.full_name,
             clock_offset=clock_offset,
@@ -268,6 +272,8 @@ class FstReader(Reader):
             if high - low + 1 < fst_signal.width:
                 result = result[high:low]
 
+        if signed:
+            result = result.as_signed()
         return result
 
     def top_scope_list(self) -> Sequence[Scope]:

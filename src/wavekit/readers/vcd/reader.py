@@ -12,6 +12,7 @@ from ...waveform import Waveform
 from ..base import Reader
 from ..pattern_parser import split_by_range_expr
 from .vcd_parser import VCDParser
+from ..edge_detect import select_clock_edges
 
 
 class VcdScope(Scope):
@@ -231,38 +232,19 @@ class VcdReader(Reader):
         if len(all_clock_changes) == 0:
             raise ValueError(f"clock signal '{clock_path}' has no value changes")
 
-        # Validate clock is 1-bit
+        # Select real clock edges with width validation and x/z exclusion
         clock_info = self._parser.signals[clock_sid]
-        clock_width = clock_info['width']
-        if clock_width != 1:
-            raise ValueError(
-                f"clock signal '{clock_path}' has width {clock_width}; "
-                'only 1-bit clocks are supported'
-            )
-
-        # Detect actual clock edges (0->1 or 1->0) rather than matching target level
-        clock_values = all_clock_changes[:, 1]
-        clock_prev = np.roll(clock_values, 1)
-        if sample_on_posedge:
-            clock_edge_mask = (clock_prev == 0) & (clock_values == 1)
-        else:
-            clock_edge_mask = (clock_prev == 1) & (clock_values == 0)
-        clock_edge_mask[0] = False
-        # Exclude transitions involving x/z clock values
         clock_xz = np.array(
             [bool(re.search(r'[xXzZ]', v[1])) for v in clock_tv],
             dtype=np.bool_,
         )
-        clock_prev_xz = np.roll(clock_xz, 1)
-        clock_prev_xz[0] = True
-        clock_edge_mask &= ~clock_xz & ~clock_prev_xz
-
-        clock_edge_times = all_clock_changes[clock_edge_mask, 0]
-
-        if len(clock_edge_times) == 0:
-            raise ValueError(
-                f"clock signal '{clock_path}' has no {'rising' if sample_on_posedge else 'falling'} edges"
-            )
+        clock_edge_mask, clock_edge_times = select_clock_edges(
+            all_clock_changes,
+            sample_on_posedge=sample_on_posedge,
+            clock_width=clock_info['width'],
+            clock_xz_mask=clock_xz,
+            clock_name=clock_path,
+        )
 
         # Convert begin_cycle/end_cycle to begin_time/end_time
         if begin_cycle is not None:
@@ -319,7 +301,7 @@ class VcdReader(Reader):
             signal_value_change,
             clock_value_change,
             width=width,
-            signed=signed,
+            signed=False,
             sample_on_posedge=sample_on_posedge,
             signal=lookup_path,
             clock_offset=clock_offset,
@@ -387,6 +369,10 @@ class VcdReader(Reader):
                 slice_width = high - low + 1
                 if slice_width < width:
                     result = result[high:low]
+        if signed:
+            result = result.as_signed()
+            result.name = lookup_path
+            result.signal.full_name = lookup_path
 
         return result
 
