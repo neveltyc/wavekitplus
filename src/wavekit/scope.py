@@ -126,7 +126,7 @@ def _traverse_scope_tree(
             # Module-name pattern: $$ModName (any depth) or $ModName (direct child)
             if p[1] == '$':
                 module_name = p[2:]
-                depth = 0
+                depth = -1
             else:
                 module_name = p[1:]
                 depth = 1

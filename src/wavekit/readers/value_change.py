@@ -47,7 +47,8 @@ def value_change_to_value_array_uint64(value_change, clock_changes,
             ctime = clock_time[cidx]
             while vidx + 1 < vrange and value_time[vidx + 1] <= ctime:
                 vidx += 1
-            value_res[ccnt] = value[vidx]
+            if value_time[vidx] <= ctime:
+                value_res[ccnt] = value[vidx]
             clock_res[ccnt] = clock_offset + ccnt
             time_res[ccnt] = ctime
             ccnt += 1
@@ -78,7 +79,8 @@ def value_change_to_value_array_object(value_change, clock_changes,
             ctime = clock_time[cidx]
             while vidx + 1 < vrange and value_time[vidx + 1] <= ctime:
                 vidx += 1
-            value_res[ccnt] = value[vidx]
+            if value_time[vidx] <= ctime:
+                value_res[ccnt] = value[vidx]
             clock_res[ccnt] = clock_offset + ccnt
             time_res[ccnt] = ctime
             ccnt += 1

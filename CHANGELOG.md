@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.10 - 2026-05-26
+
+### Fixed
+- pyproject.toml version sync (was stuck at 0.8.6 across multiple releases)
+- module pattern now uses depth=-1 (unlimited recursion) — matches documented semantics
+- as_signed() handles >64-bit object-dtype waveforms without overflow
+- value_change_to_value_array() guards against future-value leak at clock edges before first signal change
+- __rrshift__ width metadata for scalar >> wave now uses max(other.bit_length(), self.width)
+
 ## v0.8.9 - 2026-05-26
 
 ### Fixed

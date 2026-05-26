@@ -272,6 +272,13 @@ class Waveform:
     @staticmethod
     # @jit
     def _signed(value: np.ndarray, width: int):
+        if value.dtype == np.object_:
+            sign_bit = 1 << (width - 1)
+            offset = 1 << width
+            return np.array(
+                [int(v) - offset if (int(v) & sign_bit) else int(v) for v in value],
+                dtype=np.object_,
+            )
         offset = 1 << width
         return np.where(
             value < (offset // 2),
@@ -696,9 +703,12 @@ class Waveform:
         if isinstance(other, float):
             raise TypeError('Can only perform logical operations on 64-bit integers')
 
-        new_width = self.width
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
+        elif isinstance(other, int) and self.width:
+            new_width = max(other.bit_length(), self.width)
+        else:
+            new_width = self.width
 
         new_value = self._get_value(other) >> self.value
 
