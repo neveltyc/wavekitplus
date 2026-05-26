@@ -766,11 +766,12 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         self._check_sign(other)
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._eq(x, self._get_value(other)),
             width=1,
             signed=False,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -781,11 +782,12 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         self._check_sign(other)
-        return self.vectorized_map(
+        result = self.vectorized_map(
             lambda x: self._ne(x, self._get_value(other)),
             width=1,
             signed=False,
         )
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -1466,12 +1468,14 @@ class Waveform:
         if self.xz_mask is not None:
             if offset > 0:
                 xz_pad = self.xz_mask[-1] if pad == "repeat" else False
-                remaining = self.xz_mask[offset:]
-                xz_shifted = np.concatenate([remaining, np.full(offset, xz_pad, dtype=np.bool_)])
+                xz_remaining = self.xz_mask[offset:]
+                xz_pad_count = n - len(xz_remaining)
+                xz_shifted = np.concatenate([xz_remaining, np.full(xz_pad_count, xz_pad, dtype=np.bool_)])
             elif offset < 0:
                 xz_pad = self.xz_mask[0] if pad == "repeat" else False
-                remaining = self.xz_mask[:len(self.xz_mask) + offset]
-                xz_shifted = np.concatenate([np.full(-offset, xz_pad, dtype=np.bool_), remaining])
+                xz_remaining = self.xz_mask[:max(0, n + offset)]
+                xz_pad_count = n - len(xz_remaining)
+                xz_shifted = np.concatenate([np.full(xz_pad_count, xz_pad, dtype=np.bool_), xz_remaining])
             else:
                 xz_shifted = self.xz_mask.copy()
             result.xz_mask = xz_shifted

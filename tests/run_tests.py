@@ -459,6 +459,35 @@ def _test_xz_mask_concatenate_merge():
     assert np.all(c.xz_mask), 'concatenate should OR all input masks'
 t('xz_mask concatenate merge (Bug 3)', _test_xz_mask_concatenate_merge)
 
+
+def _test_xz_mask_relative_overshift():
+    """Bug 4: relative() with offset > length keeps xz_mask length correct."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    n = len(w.value)
+    # Shift more than the waveform length
+    shifted = w.ahead(n + 5)
+    assert shifted.xz_mask is not None
+    assert len(shifted.xz_mask) == n, f'expected {n}, got {len(shifted.xz_mask)}'
+    shifted2 = w.back(n + 5)
+    assert shifted2.xz_mask is not None
+    assert len(shifted2.xz_mask) == n
+t('xz_mask relative overshift length (Bug 4)', _test_xz_mask_relative_overshift)
+
+def _test_xz_mask_eq_ne_merge():
+    """Bug 5: __eq__ and __ne__ merge xz_mask from both operands."""
+    r = VcdReader(str(XZ_VCD))
+    a = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    b = Waveform(value=a.value.copy(), clock=a.clock.copy(), time=a.time.copy(),
+                 signal=a.signal, xz_mask=~a.xz_mask)
+    eq = (a == b)
+    assert eq.xz_mask is not None
+    assert np.all(eq.xz_mask), '__eq__ should OR both masks'
+    ne = (a != b)
+    assert ne.xz_mask is not None
+    assert np.all(ne.xz_mask), '__ne__ should OR both masks'
+t('xz_mask __eq__/__ne__ merge (Bug 5)', _test_xz_mask_eq_ne_merge)
+
 print()
 print('=' * 60)
 total = len(TESTS_PASSED) + len(TESTS_FAILED)

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.8.2 - 2026-05-26
+
+### Fixed
+- Bug 4: relative() xz_mask pad used offset instead of pad_count, causing wrong length on overshift
+- Bug 5: __eq__ / __ne__ missing _merge_xz_mask call (lost other operands x/z info)
+
 ## v0.8.1 - 2026-05-26
 
 ### Fixed
