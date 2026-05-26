@@ -10,7 +10,7 @@
   <img alt="Version" src="https://img.shields.io/badge/version-0.8.1-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-46/46%20passed-22aa55?style=flat-square">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-48/48%20passed-22aa55?style=flat-square">
 </p>
 
 <p align="center">
@@ -160,7 +160,7 @@ for m in result.filter_valid():
 PYTHONPATH=src python tests/run_tests.py
 ```
 
-46 项测试覆盖 VCDParser、VcdReader、iverilog 生成 VCD、缓存层、xz_mask 及边界情况。无需 pytest。
+48 项测试覆盖 VCDParser、VcdReader、iverilog 生成 VCD、缓存层、xz_mask 及边界情况。无需 pytest。
 
 ## 许可证
 
