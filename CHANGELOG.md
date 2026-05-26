@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.1 - 2026-05-26
+
+### Changed
+- root_scope: rewritten as match_signals_relative/match_scopes_relative in scope.py
+  (supports nested paths, regex groups, range suffixes, brace expansion)
+- base.py: root_scope branch simplified from 24-line special case to 2-line delegation
+
 ## v0.9.0 - 2026-05-26
 
 ### Changed

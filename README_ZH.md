@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.9.0-3366cc?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.9.1-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
   <img alt="Tests" src="https://img.shields.io/badge/tests-passing-22aa55?style=flat-square">
@@ -159,7 +159,7 @@ with VcdReader("axi_tb.vcd") as r:
 
 | 版本 | 亮点 |
 |:-----|:-----|
-| `0.9.0` | Python 3.9 兼容, __getitem__ 边界检查, root_scope 嵌套路径 |
+| `0.9.1` | Python 3.9 兼容, __getitem__ 边界检查, root_scope 嵌套路径 |
 | `0.8.15` | signed+subrange 修复, mask 对齐, alias scope tree |
 | `0.8.14` | select_clock_edges 公共函数, FST/FSDB 边沿检测 |
 | `0.8.13` | Cython future guard, 对齐全覆盖, FST/FSDB cycle bounds |
