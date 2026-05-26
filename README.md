@@ -1,10 +1,6 @@
-# wavekit
+# wavekit-plus
 
-[![CI](https://github.com/cxzzzz/wavekit/actions/workflows/python-package.yml/badge.svg)](https://github.com/cxzzzz/wavekit/actions/workflows/python-package.yml)
-[![PyPI version](https://img.shields.io/pypi/v/wavekit.svg)](https://pypi.org/project/wavekit/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/wavekit.svg)](https://pypi.org/project/wavekit/)
-[![Downloads](https://img.shields.io/pypi/dm/wavekit.svg)](https://pypi.org/project/wavekit/)
-[![License](https://img.shields.io/github/license/cxzzzz/wavekit.svg)](LICENSE)
+> **Forked from [cxzzzz/wavekit](https://github.com/cxzzzz/wavekit).** See [Why this fork?](#why-this-fork) below.
 
 English | [中文](README_ZH.md)
 
@@ -327,7 +323,7 @@ This project uses [Poetry](https://python-poetry.org/) for dependency management
 ### Setup
 
 ```bash
-git clone https://github.com/cxzzzz/wavekit.git
+git clone https://github.com/neveltyc/wavekitplus.git
 cd wavekit
 poetry install
 ```
@@ -378,6 +374,18 @@ poetry run ruff check .
 poetry run ruff format --check .
 ```
 
+## Why this fork?
+
+**wavekit-plus** replaces the [vcdvcd](https://github.com/zylin/Verilog_VCD) VCD parser with [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER)'s `VCDParser`, bringing:
+
+- **Streaming parse** -- `iter_events()` yields events one at a time instead of loading the entire file into memory.
+- **Extended VCD support** -- `$dumpports` port-state characters decoded to 4-state (`0`/`1`/`x`/`z`).
+- **Bit-explosion auto-reassembly** -- QuestaSim per-bit declarations merged back into multi-bit buses.
+- **Input hardening** -- Resource caps against pathological VCDs without crashing.
+- **License clarity** -- Removes vcdvcd (Artistic 1.0 / GPL v1); now pure MIT + BSD (NumPy).
+
+All wavekit APIs, the `Waveform` class, and the `Pattern` engine are untouched. Tests pass identically.
+
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+MIT License. See [LICENSE](./LICENSE). The embedded VCD parser (`src/wavekit/readers/vcd/vcd_parser.py`) is adapted from [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9 (also MIT).

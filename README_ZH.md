@@ -1,10 +1,6 @@
-# wavekit
+# wavekit-plus
 
-[![CI](https://github.com/cxzzzz/wavekit/actions/workflows/python-package.yml/badge.svg)](https://github.com/cxzzzz/wavekit/actions/workflows/python-package.yml)
-[![PyPI version](https://img.shields.io/pypi/v/wavekit.svg)](https://pypi.org/project/wavekit/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/wavekit.svg)](https://pypi.org/project/wavekit/)
-[![Downloads](https://img.shields.io/pypi/dm/wavekit.svg)](https://pypi.org/project/wavekit/)
-[![License](https://img.shields.io/github/license/cxzzzz/wavekit.svg)](LICENSE)
+> **本项目 Fork 自 [cxzzzz/wavekit](https://github.com/cxzzzz/wavekit)。** 详见下方 [为什么 Fork？](#why-this-fork)。
 
 **wavekit** 是一个面向数字电路波形分析的 Python 基础库。它将 VCD / FST / FSDB 仿真数据无缝转换为 Numpy 数组，让工程师能够高效地进行信号处理、协议分析和自动化验证。
 
@@ -312,7 +308,7 @@ result = (
 ### 环境搭建
 
 ```bash
-git clone https://github.com/cxzzzz/wavekit.git
+git clone https://github.com/neveltyc/wavekitplus.git
 cd wavekit
 poetry install
 ```
@@ -363,6 +359,18 @@ poetry run ruff check .
 poetry run ruff format --check .
 ```
 
+## 为什么 Fork？
+
+**wavekit-plus** 将 VCD 解析器从 [vcdvcd](https://github.com/zylin/Verilog_VCD) 替换为 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) 的 `VCDParser`，带来：
+
+- **流式解析** —— `iter_events()` 逐个产出事件，而非全量加载到内存，只加载单个信号时不再为所有信号的内存开销付费。
+- **扩展 VCD 支持** —— `$dumpports` 端口状态字符正确解码为 4-state (`0`/`1`/`x`/`z`)。
+- **Bit-explosion 自动重组** —— QuestaSim 的逐比特声明自动合并为多比特总线。
+- **输入防御** —— 资源上限抵御畸形 VCD，不会崩溃。
+- **许可澄清** —— 移除 vcdvcd (Artistic 1.0 / GPL v1)，依赖链变为纯 MIT + BSD (NumPy)。
+
+上层 `Waveform` 类和 `Pattern` 引擎保持不变，所有 API 和测试全部兼容。
+
 ## 许可证
 
-本项目基于 MIT 许可证开源，详见 [LICENSE](./LICENSE) 文件。
+MIT 许可证，详见 [LICENSE](./LICENSE)。内嵌的 VCD 解析器 (`src/wavekit/readers/vcd/vcd_parser.py`) 改编自 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9（同为 MIT）。
