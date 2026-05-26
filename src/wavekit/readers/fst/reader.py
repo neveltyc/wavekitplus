@@ -189,7 +189,7 @@ class FstReader(Reader):
             all_clock_changes,
             sample_on_posedge=sample_on_posedge,
             clock_width=fst_clock.width,
-            clock_name=clock_path,
+            clock_name=fst_clock.full_name,
         )
 
         if begin_cycle is not None:

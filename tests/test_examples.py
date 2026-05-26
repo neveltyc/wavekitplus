@@ -8,8 +8,8 @@ import shutil
 
 
 pytestmark = pytest.mark.skipif(
-    shutil.which('make') is None,
-    reason='make not available',
+    shutil.which('make') is None or shutil.which('iverilog') is None or shutil.which('vvp') is None,
+    reason='make, iverilog, or vvp not installed',
 )
 # Helper context manager to change working directory
 @contextmanager

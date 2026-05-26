@@ -33,14 +33,21 @@ class VcdScope(Scope):
     @cached_property
     def signal_list(self) -> Sequence[Signal]:
         signals: list[Signal] = []
+        seen: set[str] = set()
         for sid, info in self._parser.signals.items():
-            if info.get('scope') == self._full_path:
-                # From the full path, extract the local name (last component)
-                local_name = info['path'].split('.')[-1]
+            for alias in info.get('aliases', [info['path']]):
+                if alias in seen:
+                    continue
+                # Check if this alias belongs to our scope
+                scope_key = '.'.join(alias.split('.')[:-1]) if '.' in alias else ''
+                if scope_key != self._full_path:
+                    continue
+                local_name = alias.split('.')[-1]
+                seen.add(alias)
                 signals.append(
                     Signal(
                         name=local_name,
-                        full_name=info['path'],
+                        full_name=alias,
                         width=info['width'],
                         range=None,
                         signed=False,
@@ -54,11 +61,11 @@ class VcdScope(Scope):
         prefix = self._full_path + '.' if self._full_path else ''
         children: set[str] = set()
         for sid, info in self._parser.signals.items():
-            scope = info.get('scope', '')
-            if scope and scope.startswith(prefix):
-                remainder = scope[len(prefix):]
-                child_name = remainder.split('.')[0]
-                children.add(child_name)
+            for scope in info.get('scopes', [info.get('scope', '')]):
+                if scope and scope.startswith(prefix):
+                    remainder = scope[len(prefix):]
+                    child_name = remainder.split('.')[0]
+                    children.add(child_name)
         result: list[VcdScope] = []
         for c in sorted(children):
             child_path = f'{self._full_path}.{c}' if self._full_path else c
@@ -109,12 +116,12 @@ class VcdReader(Reader):
         # Cache per-signal value-change lists to avoid re-scanning on reloads
         self._tv_cache: dict[str, list[tuple[int, str]]] = {}
 
-        # Build top-level scopes from signal data
+        # Build top-level scopes from all signal aliases
         top_scopes: set[str] = set()
         for sid, info in self._parser.signals.items():
-            scope = info.get('scope', '')
-            if scope:
-                top_scopes.add(scope.split('.')[0])
+            for scope in info.get('scopes', [info.get('scope', '')]):
+                if scope:
+                    top_scopes.add(scope.split('.')[0])
         self._top_scope_list: list[VcdScope] = [
             VcdScope(name=s, full_path=s, parser=self._parser, reader=self)
             for s in sorted(top_scopes)
