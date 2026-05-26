@@ -588,6 +588,19 @@ def _test_concatenate_diff_length():
         pass
 t('concatenate(diff length): ValueError', _test_concatenate_diff_length)
 
+def _test_concatenate_diff_time():
+    a = mkw([1, 2, 3])
+    b = Waveform(value=np.array([4, 5, 6], dtype=np.uint64),
+        clock=np.arange(3, dtype=np.uint64),
+        time=np.array([15, 25, 35], dtype=np.uint64),
+        signal=Signal('b', 'b', 8, None, False))
+    try:
+        Waveform.concatenate([a, b])
+        raise AssertionError('should raise ValueError')
+    except ValueError:
+        pass
+t('concatenate(diff time): ValueError', _test_concatenate_diff_time)
+
 def _test_merge_empty():
     """merge([]) should raise ValueError, not IndexError."""
     try:
@@ -598,6 +611,19 @@ def _test_merge_empty():
     except IndexError:
         raise AssertionError('got IndexError, should be ValueError')
 t('merge([]): ValueError', _test_merge_empty)
+
+def _test_merge_diff_time():
+    a = mkw([1, 2, 3])
+    b = Waveform(value=np.array([4, 5, 6], dtype=np.uint64),
+        clock=np.arange(3, dtype=np.uint64),
+        time=np.array([15, 25, 35], dtype=np.uint64),
+        signal=Signal('b', 'b', 8, None, False))
+    try:
+        Waveform.merge([a, b], func=lambda vs: sum(vs), width=8, signed=False)
+        raise AssertionError('should raise ValueError')
+    except ValueError:
+        pass
+t('merge(diff time): ValueError', _test_merge_diff_time)
 
 def _test_empty_signal_match():
     """Wrong signal pattern should raise ValueError, not return {}."""

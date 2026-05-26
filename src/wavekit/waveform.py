@@ -1241,6 +1241,8 @@ class Waveform:
                 )
             if not np.array_equal(w.clock, waves[0].clock):
                 raise ValueError('All waveforms must share the same clock')
+            if not np.array_equal(w.time, waves[0].time):
+                raise ValueError('All waveforms must share the same time base')
 
         widths = [w.width for w in waves]
         if any(w is None for w in widths):
@@ -1317,6 +1319,8 @@ class Waveform:
                 )
             if not np.array_equal(w.clock, waves[0].clock):
                 raise ValueError('All waveforms must share the same clock')
+            if not np.array_equal(w.time, waves[0].time):
+                raise ValueError('All waveforms must share the same time base')
 
         all_masks = [w.xz_mask for w in waves if w.xz_mask is not None]
         merged_mask = None
