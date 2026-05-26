@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.8 - 2026-05-26
+
+### Fixed
+- downsample() regression: remove spurious _merge_xz_mask call causing NameError
+
 ## v0.8.7 - 2026-05-26
 
 ### Fixed

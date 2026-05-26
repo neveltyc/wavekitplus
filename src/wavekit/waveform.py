@@ -571,7 +571,7 @@ class Waveform:
             signal=Signal('', '', None, None, self.signed),
             xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
-        return Waveform._merge_xz_mask(result, other)
+        return result
 
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
@@ -960,7 +960,7 @@ class Waveform:
         )
         if self.xz_mask is not None:
             result.xz_mask = _bool_chunk(self.xz_mask)
-        return Waveform._merge_xz_mask(result, other)
+        return result
 
     @staticmethod
     def _count_one(x, width: int):
