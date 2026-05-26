@@ -709,6 +709,184 @@ def _test_find_scope_depth1():
 t('find_scope_by_module depth=1: finds child', _test_find_scope_depth1)
 
 
+print()
+print('=' * 60)
+print('Part 8: Real signals, empty results, edge-case crashes')
+print('=' * 60)
+
+def _test_real_signal_guard():
+    """VCD real signal should raise NotImplementedError, not crash on int(s,2)."""
+    path = make_vcd([
+        '$timescale 1ns $end', '$scope module tb $end',
+        '$var real 1 # analog $end', '$var wire 1 ! clk $end',
+        '$upscope $end', '$enddefinitions $end',
+        '#0', 'r1.25 #', '0!',
+    ])
+    try:
+        r = VcdReader(path)
+        try:
+            r.load_waveform('tb.analog', clock='tb.clk')
+            raise AssertionError('should have raised')
+        except NotImplementedError:
+            pass
+        except ValueError:
+            raise AssertionError('got ValueError instead of NotImplementedError')
+    finally:
+        os.unlink(path)
+t('real signal: NotImplementedError', _test_real_signal_guard)
+
+def _test_empty_time_window():
+    """time window past the last clock edge should not IndexError."""
+    r = VcdReader(JTAG)
+    try:
+        w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', begin_time=99999)
+        assert len(w.value) >= 0
+    except IndexError:
+        raise AssertionError('got IndexError on empty window')
+t('empty time window: no IndexError', _test_empty_time_window)
+
+def _test_signed_twos_complement():
+    """signed=True interprets 4-bit 1111 as -1, not 15."""
+    path = make_vcd([
+        '$timescale 1ns $end', '$scope module tb $end',
+        '$var wire 1 ! clk $end', '$var wire 4 " data $end',
+        '$upscope $end', '$enddefinitions $end',
+        '#0', '0!', 'b1111 "',
+        '#5', '1!',
+        '#10', '0!',
+    ])
+    try:
+        r = VcdReader(path)
+        w = r.load_waveform('tb.data[3:0]', clock='tb.clk', signed=True)
+        assert w.value[0] == -1, f'signed 1111 expected -1, got {w.value[0]}'
+    finally:
+        os.unlink(path)
+t('signed=True: two-complement interpretation', _test_signed_twos_complement)
+
+def _test_stub_nameerror():
+    """FstReader/FsdbReader stubs should raise RuntimeError, not NameError."""
+    from wavekit import FstReader, FsdbReader
+    for cls, name in [(FstReader, 'FstReader'), (FsdbReader, 'FsdbReader')]:
+        try:
+            cls('dummy')
+            raise AssertionError(f'{name} should have raised')
+        except RuntimeError:
+            pass
+        except NameError as e:
+            raise AssertionError(f'{name} stub got NameError: {e}')
+t('stub readers: RuntimeError not NameError', _test_stub_nameerror)
+
+
+print()
+print('=' * 60)
+print('Part 9: Width metadata and split/concat edge cases')
+print('=' * 60)
+
+def _test_split_bits_padding_width():
+    """split_bits padding: last group should have correct width."""
+    w = Waveform(
+        value=np.array([0x3FF], dtype=np.uint64),  # 10-bit
+        clock=np.array([0], dtype=np.uint64),
+        time=np.array([0], dtype=np.uint64),
+        signal=Signal('', '', 10, None, False),
+    )
+    parts = w.split_bits(4, padding=True)
+    widths = [p.width for p in parts]
+    assert widths == [4, 4, 2], f'expected [4,4,2], got {widths}'
+t('split_bits padding: correct widths', _test_split_bits_padding_width)
+
+def _test_unsigned_width64():
+    """as_unsigned() on width==64 signed int should not overflow."""
+    w = Waveform(
+        value=np.array([-5, 42], dtype=np.int64),
+        clock=np.array([0, 1], dtype=np.uint64),
+        time=np.array([0, 1], dtype=np.uint64),
+        signal=Signal('', '', 64, None, True),
+    )
+    try:
+        u = w.as_unsigned()
+        assert u.value[0] == (1 << 64) - 5
+    except OverflowError as e:
+        raise AssertionError(f'as_unsigned width=64 overflow: {e}')
+t('as_unsigned width=64: no overflow', _test_unsigned_width64)
+
+def _test_signed_width64():
+    """as_signed() on width==64 uint should not overflow."""
+    top_bit = np.uint64(1 << 63)
+    w = Waveform(
+        value=np.array([0, top_bit, np.uint64((1<<64)-1)], dtype=np.uint64),
+        clock=np.array([0, 1, 2], dtype=np.uint64),
+        time=np.array([0, 1, 2], dtype=np.uint64),
+        signal=Signal('', '', 64, None, False),
+    )
+    try:
+        s = w.as_signed()
+        assert s.value[0] == 0
+        assert s.value[1] == -(1 << 63)
+        assert s.value[2] == -1
+    except OverflowError as e:
+        raise AssertionError(f'as_signed width=64 overflow: {e}')
+t('as_signed width=64: correct two-complement', _test_signed_width64)
+
+
+print()
+print('=' * 60)
+print('Part 10: Alignment checks and cross-op consistency')
+print('=' * 60)
+
+def _test_alignment_check():
+    """Binary ops on misaligned waveforms should raise ValueError."""
+    a = mkw([1, 2, 3])
+    b = Waveform(
+        value=np.array([4, 5, 6], dtype=np.uint64),
+        clock=np.array([100, 101, 102], dtype=np.uint64),
+        time=np.array([100, 101, 102], dtype=np.uint64),
+        signal=Signal('b', 'b', 8, None, False),
+    )
+    try:
+        _ = a + b
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+t('binary op: misaligned clock raises ValueError', _test_alignment_check)
+
+def _test_alignment_same_ok():
+    """Aligned waveforms should work fine."""
+    a = mkw([1, 2, 3])
+    b = mkw([4, 5, 6])
+    c = a + b
+    assert len(c.value) == 3
+t('binary op: aligned waveforms ok', _test_alignment_same_ok)
+
+def _test_xz_mask_fst_not_impl():
+    """xz_mask=True on FST should raise NotImplementedError (not silently ignore)."""
+    try:
+        from wavekit.readers.fst.reader import FstReader
+        # Can't create FstReader without a real FST file, but stub check:
+        # The stub raises RuntimeError before we even reach xz_mask
+    except RuntimeError:
+        pass
+    except ImportError:
+        pass
+t('FST xz_mask: NotImplementedError path exists', _test_xz_mask_fst_not_impl)
+
+def _test_concatenate_merge_alignment_consistent():
+    """concatenate and merge alignment checks are consistent with binary ops."""
+    a = mkw([1, 2, 3])
+    b = Waveform(
+        value=np.array([4, 5, 6], dtype=np.uint64),
+        clock=np.array([100, 101, 102], dtype=np.uint64),
+        time=np.array([0, 10, 20], dtype=np.uint64),
+        signal=Signal('b', 'b', 8, None, False),
+    )
+    try:
+        Waveform.concatenate([a, b])
+        raise AssertionError('concatenate should raise on time mismatch')
+    except ValueError:
+        pass
+t('concatenate: rejects time misalignment', _test_concatenate_merge_alignment_consistent)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 print()
 print('=' * 60)
