@@ -165,9 +165,10 @@ Describe a temporal sequence; the NFA engine finds all matches in one pass.
 
 | Version | Highlight |
 |:--------|:----------|
-| `0.8.16` | xz_mask passthrough in load_matched_waveforms / eval / FstReader / FsdbReader |
-| `0.8.2` | Fix relative() xz_mask pad length, __eq__/__ne__ xz_mask merge |
-| `0.8.1` | Fix xz_mask propagation in binary ops, relative, concatenate |
+| `0.8.16` | Python 3.9 compat, __getitem__ bounds, root_scope nested paths |
+| `0.8.15` | signed+subrange fix, mask alignment, alias scope tree |
+| `0.8.14` | select_clock_edges shared helper, FST/FSDB edge detect |
+| `0.8.13` | Cython future guard, alignment coverage, FST/FSDB cycle bounds |
 | `0.8.0` | 4-state x/z masking layer |
 | `0.7.0` | Replace vcdvcd with VCD_ANALYZER VCDParser |
 

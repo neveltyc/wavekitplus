@@ -159,9 +159,10 @@ with VcdReader("axi_tb.vcd") as r:
 
 | 版本 | 亮点 |
 |:-----|:-----|
-| `0.8.16` | xz_mask 透传到 load_matched_waveforms / eval / FstReader / FsdbReader |
-| `0.8.2` | 修复 relative() xz_mask 长度 / __eq__ __ne__ xz_mask 合并 |
-| `0.8.1` | 修复 xz_mask 在二元运算、relative、concatenate 中的传播 |
+| `0.8.16` | Python 3.9 兼容, __getitem__ 边界检查, root_scope 嵌套路径 |
+| `0.8.15` | signed+subrange 修复, mask 对齐, alias scope tree |
+| `0.8.14` | select_clock_edges 公共函数, FST/FSDB 边沿检测 |
+| `0.8.13` | Cython future guard, 对齐全覆盖, FST/FSDB cycle bounds |
 | `0.8.0` | 4-state x/z 掩码层 |
 | `0.7.0` | 用 VCD_ANALYZER VCDParser 替换 vcdvcd |
 
