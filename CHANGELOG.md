@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.15 - 2026-05-26
+
+### Fixed
+- signed=True + subrange: bit-sliced signed signals no longer crash (signed conversion after slice)
+- Waveform.mask(mask_waveform): added clock/time alignment check
+- __rlshift__: guard empty waveform against np.max() on zero-size array
+- width>64 arithmetic: _check_arithmetic_op_width added to sub, mul, floordiv, mod, pow
+- FST: clock_name uses fst_clock.full_name (was undefined clock_path)
+- test_examples: skip condition checks make + iverilog + vvp
+- root_scope: single-element patterns match signals relative to scope
+- VCD: scope tree built from all alias scopes, signal_list includes all aliases
+- pytest: external deps (make, iverilog, pylibfst) correctly skipped — 140 passed, 4 skipped
+
 ## v0.8.14 - 2026-05-26
 
 ### Fixed
