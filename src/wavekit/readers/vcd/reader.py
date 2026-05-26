@@ -76,11 +76,26 @@ class VcdScope(Scope):
         results: list[Scope] = []
         if self.name == module_name:
             results.append(self)
-        if depth >= 0:
+        if depth != 0:
+            next_depth = depth - 1 if depth > 0 else depth
             for child in self.child_scope_list:
-                results.extend(child.find_scope_by_module(module_name, depth - 1 if depth > 0 else depth))
+                results.extend(child.find_scope_by_module(module_name, next_depth))
         return results
 
+
+
+def _has_xz_in_range(value_str: str, lo: int, hi: int) -> bool:
+    """Check if a 4-state value string has x/z in bit range [lo, hi]."""
+    if lo > hi:
+        lo, hi = hi, lo
+    if not value_str or all(c not in 'xXzZ' for c in value_str):
+        return False
+    n = len(value_str)
+    for i in range(n):
+        bit_pos = n - 1 - i
+        if lo <= bit_pos <= hi and value_str[i] in 'xXzZ':
+            return True
+    return False
 
 class VcdReader(Reader):
     def __init__(self, file: str):
@@ -226,8 +241,16 @@ class VcdReader(Reader):
             clock_edge_mask = (clock_prev == 0) & (clock_values == 1)
         else:
             clock_edge_mask = (clock_prev == 1) & (clock_values == 0)
-        # First change is never an edge (no previous value to compare)
         clock_edge_mask[0] = False
+        # Exclude transitions involving x/z clock values
+        clock_xz = np.array(
+            [bool(re.search(r'[xXzZ]', v[1])) for v in clock_tv],
+            dtype=np.bool_,
+        )
+        clock_prev_xz = np.roll(clock_xz, 1)
+        clock_prev_xz[0] = True
+        clock_edge_mask &= ~clock_xz & ~clock_prev_xz
+
         clock_edge_times = all_clock_changes[clock_edge_mask, 0]
 
         if len(clock_edge_times) == 0:
@@ -249,7 +272,10 @@ class VcdReader(Reader):
                     f'end_cycle={end_cycle} out of range '
                     f'(clock has {len(clock_edge_times)} edges)'
                 )
-            end_time = int(clock_edge_times[end_cycle])
+            if end_cycle == len(clock_edge_times):
+                pass  # no upper bound, sample to end
+            else:
+                end_time = int(clock_edge_times[end_cycle])
         if (
             begin_cycle is not None
             and end_cycle is not None
@@ -263,12 +289,13 @@ class VcdReader(Reader):
         begin_time_actual = begin_time if begin_time is not None else 0
         clock_offset = int(np.searchsorted(clock_edge_times, begin_time_actual, side='left'))
 
-        # Trim clock to window [begin_time_actual, end_time] to reduce memory usage
+        # Filter clock to edge events within time window
         end_time_actual = end_time if end_time is not None else np.iinfo(np.uint64).max
-        clock_mask = all_clock_changes[:, 0] >= begin_time_actual
+        edge_mask = clock_edge_mask.copy()
+        edge_mask &= all_clock_changes[:, 0] >= begin_time_actual
         if end_time is not None:
-            clock_mask &= all_clock_changes[:, 0] <= end_time_actual
-        clock_value_change = all_clock_changes[clock_mask]
+            edge_mask &= all_clock_changes[:, 0] <= end_time_actual
+        clock_value_change = all_clock_changes[edge_mask]
 
         # Convert signal changes to numpy array
         signal_value_change = np.array(
@@ -289,11 +316,26 @@ class VcdReader(Reader):
         )
 
         # Attach x/z masking info if requested
+        # Attach x/z masking info if requested
         if xz_mask:
-            xz_flags = np.array(
-                [bool(re.search(r'[xXzZ]', v[1])) for v in signal_tv],
-                dtype=np.bool_,
-            )
+            if range_suffix:
+                m = re.fullmatch(r'\[(\d+)(?::(\d+))?\]', range_suffix)
+                if m:
+                    hi = int(m.group(1))
+                    lo = int(m.group(2)) if m.group(2) is not None else hi
+                    xz_flags = np.array([
+                        _has_xz_in_range(v[1], lo, hi) for v in signal_tv
+                    ], dtype=np.bool_)
+                else:
+                    xz_flags = np.array(
+                        [bool(re.search(r'[xXzZ]', v[1])) for v in signal_tv],
+                        dtype=np.bool_,
+                    )
+            else:
+                xz_flags = np.array(
+                    [bool(re.search(r'[xXzZ]', v[1])) for v in signal_tv],
+                    dtype=np.bool_,
+                )
             xz_vc = np.zeros((len(signal_tv), 2), dtype=np.uint64)
             xz_vc[:, 0] = np.array([v[0] for v in signal_tv], dtype=np.uint64)
             xz_vc[:, 1] = xz_flags.astype(np.uint64)

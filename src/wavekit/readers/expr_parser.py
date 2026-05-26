@@ -24,9 +24,11 @@ _WAVE_PATH_RE = re.compile(
 )
 
 
-def _is_wave_path(token: str) -> bool:
+def _is_wave_path(token: str, has_root_scope: bool = False) -> bool:
     """Return True if token looks like a waveform signal path."""
     if token.startswith('$') or token.startswith('@'):
+        return True
+    if has_root_scope and re.match(r'^[a-zA-Z_]\w*(\[.*\])?$', token):
         return True
     # Must contain a dot (hierarchy) but not look like a floating-point literal
     if '.' in token:
@@ -38,7 +40,7 @@ def _is_wave_path(token: str) -> bool:
     return False
 
 
-def extract_wave_paths(expr: str) -> tuple[str, list[tuple[str, str]]]:
+def extract_wave_paths(expr: str, root_scope=None) -> tuple[str, list[tuple[str, str]]]:
     """Parse *expr* and replace wave path tokens with placeholder identifiers.
 
     Returns
@@ -48,13 +50,14 @@ def extract_wave_paths(expr: str) -> tuple[str, list[tuple[str, str]]]:
     paths : list of (placeholder, original_path)
         The ordered list of substitutions made.
     """
+    has_scope = root_scope is not None
     paths: list[tuple[str, str]] = []
     counter = 0
 
     def replacer(m: re.Match) -> str:
         nonlocal counter
         token = m.group('path')
-        if not _is_wave_path(token):
+        if not _is_wave_path(token, has_scope):
             return token
         placeholder = f'__wave_{counter}__'
         paths.append((placeholder, token))

@@ -448,7 +448,7 @@ class Reader:
             If provided, all signal paths in *expr* are resolved within this
             scope instead of the file's top-level scopes.
         """
-        substituted, path_entries = extract_wave_paths(expr)
+        substituted, path_entries = extract_wave_paths(expr, root_scope)
 
         load_kwargs: dict[str, Any] = dict(
             clock=clock,

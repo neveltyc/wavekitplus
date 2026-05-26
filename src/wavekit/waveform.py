@@ -564,12 +564,14 @@ class Waveform:
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
         new_value = self._get_value(other) ** self.value
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', None, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
+        return result
 
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
@@ -650,8 +652,9 @@ class Waveform:
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', new_width, None, self.signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
-        return result
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -1062,9 +1065,9 @@ class Waveform:
             signal=Signal('', '', 1, None, False),
         )
         if self.xz_mask is not None:
-            prev_mask = np.roll(self.xz_mask, -1)
-            prev_mask[-1] = False
-            result.xz_mask = self.xz_mask | prev_mask
+            edge_xz = np.zeros_like(self.xz_mask, dtype=bool)
+            edge_xz[1:] = self.xz_mask[:-1] | self.xz_mask[1:]
+            result.xz_mask = edge_xz
         return result
 
     def rising_edge(self) -> Waveform:
@@ -1095,9 +1098,9 @@ class Waveform:
             signal=Signal('', '', 1, None, False),
         )
         if self.xz_mask is not None:
-            prev_mask = np.roll(self.xz_mask, -1)
-            prev_mask[-1] = False
-            result.xz_mask = self.xz_mask | prev_mask
+            edge_xz = np.zeros_like(self.xz_mask, dtype=bool)
+            edge_xz[1:] = self.xz_mask[:-1] | self.xz_mask[1:]
+            result.xz_mask = edge_xz
         return result
 
     def bit_count(self) -> Waveform:
@@ -1285,8 +1288,25 @@ class Waveform:
                 [a, b, c], lambda vs: int(sum(vs) >= 2), width=1, signed=False
             )
         """
+        if not waves:
+            raise ValueError('merge() requires at least one waveform')
+
         wave_len = len(waves[0].value)
-        assert all([wave_len == len(w.value) for w in waves])
+        for w in waves:
+            if len(w.value) != wave_len:
+                raise ValueError(
+                    f'All waveforms must have the same length '
+                    f'(expected {wave_len}, got {len(w.value)})'
+                )
+            if not np.array_equal(w.clock, waves[0].clock):
+                raise ValueError('All waveforms must share the same clock')
+
+        all_masks = [w.xz_mask for w in waves if w.xz_mask is not None]
+        merged_mask = None
+        if all_masks:
+            merged_mask = all_masks[0].copy()
+            for m in all_masks[1:]:
+                merged_mask |= m
 
         new_value = np.zeros(wave_len, dtype=np.object_)
         for idx in range(wave_len):
@@ -1298,6 +1318,7 @@ class Waveform:
             clock=np.copy(waves[0].clock),
             time=np.copy(waves[0].time),
             signal=Signal('', '', width, None, signed),
+            xz_mask=merged_mask,
         )
 
     def time_slice(
