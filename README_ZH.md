@@ -15,15 +15,27 @@
 
 ## 安装
 
+wavekit-plus 为纯源码 fork，直接从源码安装依赖即可使用：
+
 ```bash
-pip install wavekit
+# 克隆仓库（含子模块）
+git clone --recurse-submodules https://github.com/neveltyc/wavekitplus.git
+cd wavekitplus
+
+# 安装依赖（NumPy 必需，Cython 可选用于加速）
+pip install numpy pytest
+
+# 设置 PYTHONPATH 即可使用
+export PYTHONPATH="$PWD/src:$PYTHONPATH"    # Linux / macOS
+$env:PYTHONPATH = "$PWD\src"               # PowerShell
 ```
 
-**FSDB 支持说明**：读取 FSDB 文件需要 Verdi 运行时库（`libNPI.so`）在运行时可访问。可通过以下任一方式配置：
+**无需 C 编译器** — 已内置 Cython `value_change` 模块的纯 Python 回退。
 
-- `WAVEKIT_NPI_LIB` — 直接指定 `libNPI.so` 的路径
-- `VERDI_HOME` — Verdi 安装目录（库文件会在 `$VERDI_HOME/share/NPI/lib/...` 下自动查找）
-- `LD_LIBRARY_PATH` — 系统库搜索路径
+**可选依赖：**
+- `pip install pylibfst` — FST 波形支持
+- `pip install Cython` + MSVC/GCC — 编译原生 Cython 扩展，重采样性能提升约 3 倍
+- FSDB 支持需要 Verdi 运行时（`libNPI.so`）。通过 `WAVEKIT_NPI_LIB`、`VERDI_HOME` 或 `LD_LIBRARY_PATH` 配置。
 
 ## 快速上手
 
@@ -303,60 +315,27 @@ result = (
 
 ## 开发
 
-本项目使用 [Poetry](https://python-poetry.org/) 管理依赖与打包。
-
 ### 环境搭建
 
 ```bash
-git clone https://github.com/neveltyc/wavekitplus.git
-cd wavekit
-poetry install
+git clone --recurse-submodules https://github.com/neveltyc/wavekitplus.git
+cd wavekitplus
+pip install numpy pytest
 ```
 
-### 测试
-
-测试用例位于 `tests/` 目录，使用 [pytest](https://pytest.org/) 运行。
+### 运行测试
 
 ```bash
-# 运行全部测试
-poetry run pytest
-
-# 运行指定文件
-poetry run pytest tests/test_pattern.py
-
-# 详细输出
-poetry run pytest -v
+PYTHONPATH=src pytest tests/ -v --ignore=tests/test_examples.py --ignore=tests/test_fstreader.py
 ```
 
-### 代码检查与格式化
+需要 `make` / Icarus Verilog / `pylibfst` 的测试在缺少对应工具时会自动跳过。
 
-使用 [Ruff](https://github.com/astral-sh/ruff) 进行代码检查与格式化。
-
-```bash
-# 检查代码规范
-poetry run ruff check .
-
-# 检查格式（不修改文件）
-poetry run ruff format --check .
-
-# 自动修复格式
-poetry run ruff format .
-```
-
-### 类型检查
+### 编译 Cython 扩展（可选）
 
 ```bash
-poetry run mypy .
-```
-
-## 参与贡献
-
-欢迎提交 Issue 和 PR！在提交代码前，请确保测试通过且代码检查无报错：
-
-```bash
-poetry run pytest
-poetry run ruff check .
-poetry run ruff format --check .
+pip install Cython setuptools
+python build.py
 ```
 
 ## 为什么 Fork？

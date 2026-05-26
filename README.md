@@ -15,16 +15,29 @@ English | [中文](README_ZH.md)
 - **Pattern Matching**: NFA-based temporal pattern engine that scans waveforms in a single pass to extract protocol transactions, measure latencies, and detect timing violations.
 - **High-Performance Parsing & Storage**: VCD, FST, and FSDB readers with Numpy-backed storage for fast loading and memory efficiency, handling large simulation files with ease.
 
-## 📦 Installation
+## 📦 Setup
+
+wavekit-plus is a source-only fork. Install dependencies and run from source:
 
 ```bash
-pip install wavekit
+# Clone with submodules
+git clone --recurse-submodules https://github.com/neveltyc/wavekitplus.git
+cd wavekitplus
+
+# Install dependencies (NumPy is required; Cython is optional for native speed)
+pip install numpy pytest
+
+# Add src to PYTHONPATH and you're ready
+export PYTHONPATH="$PWD/src:$PYTHONPATH"    # Linux / macOS
+$env:PYTHONPATH = "$PWD\src"               # PowerShell
 ```
 
-**Note**: To read FSDB files, the Verdi runtime library (`libNPI.so`) must be available at runtime. Configure via:
-- `WAVEKIT_NPI_LIB` — direct path to `libNPI.so`
-- `VERDI_HOME` — Verdi installation directory (searches `$VERDI_HOME/share/NPI/lib/...`)
-- `LD_LIBRARY_PATH` — system library search path
+**No C compiler required** — a pure-Python fallback for the Cython `value_change` module is included.
+
+**Optional dependencies:**
+- `pip install pylibfst` — FST waveform support
+- `pip install Cython` + MSVC/GCC — build the native Cython extension for ~3x faster resampling
+- FSDB support requires the Verdi runtime (`libNPI.so`). Configure via `WAVEKIT_NPI_LIB`, `VERDI_HOME`, or `LD_LIBRARY_PATH`.
 
 ## 🚀 Quick Start
 
@@ -318,60 +331,28 @@ result = (
 
 ## 🛠️ Development
 
-This project uses [Poetry](https://python-poetry.org/) for dependency management and packaging.
-
 ### Setup
 
 ```bash
-git clone https://github.com/neveltyc/wavekitplus.git
-cd wavekit
-poetry install
+git clone --recurse-submodules https://github.com/neveltyc/wavekitplus.git
+cd wavekitplus
+pip install numpy pytest
 ```
 
-### Testing
-
-Tests are located in the `tests/` directory and run with [pytest](https://pytest.org/).
+### Running tests
 
 ```bash
-# Run all tests
-poetry run pytest
-
-# Run a specific test file
-poetry run pytest tests/test_pattern.py
-
-# Run with verbose output
-poetry run pytest -v
+# Set PYTHONPATH and run
+PYTHONPATH=src pytest tests/ -v --ignore=tests/test_examples.py --ignore=tests/test_fstreader.py
 ```
 
-### Linting & Formatting
+Tests that require `make` / Icarus Verilog / `pylibfst` are skipped on machines without those tools.
 
-This project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting.
-
-```bash
-# Check for lint errors
-poetry run ruff check .
-
-# Check formatting (no changes)
-poetry run ruff format --check .
-
-# Auto-fix formatting
-poetry run ruff format .
-```
-
-### Type Checking
+### Building the Cython extension (optional)
 
 ```bash
-poetry run mypy .
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please open an issue to discuss a bug or feature request before submitting a pull request. When contributing code, make sure all tests pass and the linter reports no errors:
-
-```bash
-poetry run pytest
-poetry run ruff check .
-poetry run ruff format --check .
+pip install Cython setuptools
+python build.py
 ```
 
 ## Why this fork?
