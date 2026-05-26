@@ -2,72 +2,66 @@
 
 All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project follows [Semantic Versioning](https://semver.org/).
-
 ## v0.8.5 - 2026-05-26
 
 ### Fixed
-- Bug 3: rising_edge/falling_edge propagate xz_mask (edge from unknown = unknown edge)
-- Bug 3: downsample propagates xz_mask (chunk any()) and validates chunk_size > 0
-- Bug 4: child_scope_list now sets parent_scope on child VcdScope instances
-- Bug 4: VcdScope.find_scope_by_module() implemented for $module pattern matching
+- xz_mask now propagates through rising_edge() and falling_edge() (edge involving unknown = unknown)
+- downsample() validates chunk_size > 0 and propagates xz_mask (chunk-level any())
+- VcdScope.child_scope_list now correctly sets parent_scope on children
+- VcdScope.find_scope_by_module() implemented for $module/$module pattern matching
 
 ## v0.8.4 - 2026-05-26
 
+Upstream bug fixes inherited from original wavekit.
+
 ### Fixed
-- Bug 1: clock edge detection now uses actual 0->1/1->0 transitions (not level match); validate clock is 1-bit
-- Bug 2: __rlshift__/__rrshift__/__rpow__ now compute correct direction (scalar << wave, scalar >> wave, scalar ** wave)
-- Bug 5: regex signal matching now strips range suffix (\@J_state matches J_state[3:0])
-- Bug 6: load_matched_waveforms raises ValueError when no signals matched (was silent empty dict)
-- Bug 7: concatenate() validates input list, length consistency, clock alignment
-- Bug 8: begin_cycle/end_cycle out-of-bounds raises clean ValueError (was IndexError or negative indexing)
-- Bug 9: __getitem__ with None slice bounds raises clear ValueError
-- Bug 10: pylibfst moved to optional extras[fst], pytest moved to dev dependencies
+- Clock edge detection: use 0->1/1->0 transitions (not level match); validate 1-bit clock
+- __rlshift__ / __rrshift__ / __rpow__ compute correct direction (scalar << wave, etc.)
+- Regex signal matching strips range suffix (@J_state now matches J_state[3:0])
+- load_matched_waveforms raises ValueError on no signal match (was silent empty dict)
+- concatenate() validates empty list, length consistency, and clock alignment
+- begin_cycle / end_cycle out-of-bounds raises clean ValueError
+- Waveform.__getitem__ rejects None slice bounds with clear error
+- pylibfst moved to optional extras[fst], pytest moved to dev dependencies
 
 ## v0.8.3 - 2026-05-26
 
 ### Fixed
-- Bug 6: load_matched_waveforms and eval now accept and forward xz_mask parameter
-- Bug 7: FstReader and FsdbReader load_waveform signatures synced with xz_mask parameter
+- load_matched_waveforms and eval now accept and forward xz_mask parameter
+- FstReader and FsdbReader load_waveform signatures synced with xz_mask parameter
 
 ## v0.8.2 - 2026-05-26
 
 ### Fixed
-- Bug 4: relative() xz_mask pad used offset instead of pad_count, causing wrong length on overshift
-- Bug 5: __eq__ / __ne__ missing _merge_xz_mask call (lost other operands x/z info)
+- relative() / ahead() / back() xz_mask pad uses pad_count (not raw offset) to fix overshift length
+- __eq__ / __ne__ now merge xz_mask from both operands
 
 ## v0.8.1 - 2026-05-26
 
 ### Fixed
-- Bug 1: dual-operand arithmetic now merges xz_mask from both waveforms (affects +, -, *, /, //, %, &, |, ^, <<, >>)
-- Bug 2: relative() / ahead() / back() now propagate xz_mask with the same shift/pad logic as value
-- Bug 3: concatenate() now OR-merges xz_masks from all input waveforms
+- Dual-operand arithmetic merges xz_mask from both waveforms (+, -, *, /, //, %, &, |, ^, <<, >>)
+- relative() / ahead() / back() propagate xz_mask with same shift/pad logic as value
+- concatenate() OR-merges xz_masks from all input waveforms
 
 ### Added
 - Waveform._merge_xz_mask() static helper for centralized mask merging
-- 3 regression tests (dual-operand merge, relative propagation, concatenate merge)
 
 ## v0.8.0 - 2026-05-26
 
 ### Added
-- 4-state x/z masking in Waveform: xz_mask attribute, has_xz, xz_cycles, drop_xz
+- 4-state x/z masking layer: xz_mask attribute on Waveform, has_xz, xz_cycles, drop_xz
 - load_waveform(xz_mask=True) generates per-cycle x/z presence flags from raw VCD values
-- xz_mask propagation through: mask, filter, time_slice, cycle_slice, take, copy, arithmetic
+- xz_mask propagation through mask, filter, slice, take, copy, arithmetic, relative, concatenate
 - xz_trace.vcd test fixture with xxx/zzz/x10 values
-- 8 xz_mask tests (default off, detection, backward compat, drop, slice survival, arithmetic)
 
 ### Changed
-- Waveform.__init__ accepts optional xz_mask parameter
-- vectorized_map propagates xz_mask from source Waveform
-- All Waveform constructors in slice/filter/index methods pass xz_mask
+- Waveform.__init__ accepts optional xz_mask parameter (defaults to None, backward compatible)
 
 ## v0.7.2 - 2026-05-26
 
 ### Added
-- Signal value-change cache in VcdReader (per-signal tv lists, lazy-fill via _ensure_cached)
-- Single-scan batch caching: loading N signals triggers at most one iter_events pass
-- Cache consistency tests (reload, shared clock, empty signal, no re-scan)
+- Signal value-change cache in VcdReader (_tv_cache + _ensure_cached)
+- Single-scan batch caching: loading N signals from same reader triggers at most one iter_events pass
 
 ### Changed
 - load_waveform reads value changes from cache instead of direct iter_events call
@@ -75,17 +69,15 @@ and this project follows [Semantic Versioning](https://semver.org/).
 ## v0.7.1 - 2026-05-26
 
 ### Added
-- Comprehensive test suite (31 tests covering VCDParser, VcdReader, iverilog VCDs, edge cases)
+- Comprehensive test suite (31 tests, later grown to 61)
 
 ### Fixed
 - Remove dead _check_time_range() referencing missing _TimeParseError
-- Remove dead _DEFAULT_LIMIT CLI constant
-- Fix outdated comments referencing removed functions (parse_time, fmt_val, _build_snapshot)
-- Make iverilog tests optional (skip when tools unavailable)
+- Remove stale CLI constant _DEFAULT_LIMIT
+- Fix comments referencing removed functions (parse_time, fmt_val, _build_snapshot)
 
 ### Docs
 - Add VCD_ANALYZER copyright to LICENSE
-- Add v0.7.x entries to CHANGELOG
 
 ## v0.7.0 - 2026-05-26
 
@@ -98,31 +90,13 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - QuestaSim bit-exploded bus auto-reassembly
 - Extended VCD port state support ($dumpports)
 - Input defense: 16 resource limits against DoS/malicious VCD
-- Streaming parse via iter_events() with sids filtering
 - Pure Python fallback for Cython value_change module (no C compiler required)
 
 ### Removed
-- vcdvcd dependency (replaced by embedded VCDParser)
+- vcdvcd dependency
 
-## Unreleased
+---
 
-## v0.6.1 - 2026-05-23
+## v0.6.1 and earlier
 
-### Fixed
-- Fix wheel packaging for Cython reader extensions so installed wheels expose `wavekit.readers.value_change` and FSDB extension modules at their runtime import paths.
-
-## v0.6.0 - 2026-05-23
-
-### Added
-- Add `FstReader` for loading FST waveform files through the same reader APIs as VCD and FSDB.
-- Add `Channel`-based FIFO consumption to `Pattern.wait()` for ordered request/response pairing and per-ID routing.
-- Add relative time access helpers for waveform analysis.
-- Add Chinese README documentation.
-
-### Changed
-- Refactor the pattern API around tick, channel, capture mode, and require semantics.
-- Improve VCD reader error reporting for empty value-change data and unsupported sub-range access.
-
-### Fixed
-- Fix FSDB array signal value parsing and reader resource handling.
-- Restrict pattern trigger optimization to `wait()` steps.
+See the [original wavekit changelog](https://github.com/cxzzzz/wavekit/blob/main/CHANGELOG.md).

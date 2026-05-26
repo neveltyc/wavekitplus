@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.8.3-3366cc?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.8.5-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
   <img alt="Tests" src="https://img.shields.io/badge/tests-passing-22aa55?style=flat-square">
@@ -165,7 +165,7 @@ Describe a temporal sequence; the NFA engine finds all matches in one pass.
 
 | Version | Highlight |
 |:--------|:----------|
-| `0.8.3` | xz_mask passthrough in load_matched_waveforms / eval / FstReader / FsdbReader |
+| `0.8.5` | xz_mask passthrough in load_matched_waveforms / eval / FstReader / FsdbReader |
 | `0.8.2` | Fix relative() xz_mask pad length, __eq__/__ne__ xz_mask merge |
 | `0.8.1` | Fix xz_mask propagation in binary ops, relative, concatenate |
 | `0.8.0` | 4-state x/z masking layer |
