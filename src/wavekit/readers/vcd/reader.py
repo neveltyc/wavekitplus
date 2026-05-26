@@ -298,6 +298,10 @@ class VcdReader(Reader):
         clock_value_change = all_clock_changes[edge_mask]
 
         # Convert signal changes to numpy array
+        # Prepend synthetic initial value if signal has no value at t=0
+        if signal_tv and signal_tv[0][0] > 0:
+            signal_tv.insert(0, (0, 'x' * width))
+
         signal_value_change = np.array(
             [(v[0], int(re.sub(r'[xXzZ]', str(xz_value), v[1]), 2)) for v in signal_tv],
             dtype=np.object_ if width > 64 else np.uint64,

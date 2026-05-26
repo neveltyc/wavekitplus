@@ -571,7 +571,7 @@ class Waveform:
             signal=Signal('', '', None, None, self.signed),
             xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
-        return result
+        return Waveform._merge_xz_mask(result, other)
 
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
@@ -643,9 +643,13 @@ class Waveform:
 
     def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
         self._check_logical_op_type(other)
-        new_width = self.width
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
+        elif self.width and isinstance(other, int):
+            max_shift = int(np.max(self.value))
+            new_width = max(other.bit_length() + max_shift, self.width)
+        else:
+            new_width = self.width
         new_value = self._get_value(other) << self.value
         result = Waveform(
             value=new_value,
@@ -762,7 +766,10 @@ class Waveform:
     @staticmethod
     # @jit
     def _invert(a, width: int):
-        return (~a) & np.uint64((1 << width) - 1)
+        mask = (1 << width) - 1
+        if a.dtype == np.object_:
+            return (~a) & mask
+        return (~a) & np.uint64(mask)
 
     def __invert__(self, width: int = None) -> Waveform:
         if self.width is None:

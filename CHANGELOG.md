@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.9 - 2026-05-26
+
+### Fixed
+- __rpow__ now calls _merge_xz_mask for dual-operand xz propagation
+- __invert__ handles >64 bit object-dtype waveforms without overflow
+- __rlshift__ width accommodates max possible shift value (scalar << wave)
+- VCD signal with no value at t=0 no longer leaks future values at early clock edges
+
+### Added
+- Adversarial test suite (66 tests): xz_mask propagation, clock edge detection, subrange xz, cycle bounds
+- conftest.py to exclude standalone test script from pytest collection
+
 ## v0.8.8 - 2026-05-26
 
 ### Fixed
