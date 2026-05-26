@@ -508,7 +508,7 @@ t('xz_mask through eval (Bug 6)', _test_xz_mask_eval)
 
 
 print()
-print('--- Bug fixes v0.9.0 ---')
+print('--- Bug fixes v0.8.4+ ---')
 
 def _test_clock_edge_detection():
     """Bug 1: clock edge is actual 0->1/1->0 transition, not level match."""
@@ -621,6 +621,58 @@ def _test_getitem_none_bounds():
     except ValueError as e:
         assert 'both bounds required' in str(e)
 t('getitem None bounds error (Bug 9)', _test_getitem_none_bounds)
+
+
+def _test_edge_xz_mask():
+    """Bug 3a: rising_edge/falling_edge propagate xz_mask."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.clk', clock='tb.clk', xz_mask=True)
+    re_w = w.rising_edge()
+    fe_w = w.falling_edge()
+    assert re_w.xz_mask is not None
+    assert fe_w.xz_mask is not None
+    assert len(re_w.xz_mask) == len(re_w.value)
+    assert len(fe_w.xz_mask) == len(fe_w.value)
+t('edge detection xz_mask (Bug 3a)', _test_edge_xz_mask)
+
+def _test_downsample_validation():
+    """Bug 3b: downsample validates chunk_size and propagates xz_mask."""
+    r = VcdReader(str(JTAG))
+    w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', xz_mask=True)
+    ds = w.downsample(5)
+    assert ds.xz_mask is not None
+    try:
+        w.downsample(0)
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+    try:
+        w.downsample(-1)
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+t('downsample validation + xz_mask (Bug 3b)', _test_downsample_validation)
+
+def _test_scope_parent():
+    """Bug 4a: child scopes have parent_scope set correctly."""
+    r = VcdReader(str(JTAG))
+    for scope in r.top_scope_list():
+        if scope.child_scope_list:
+            child = scope.child_scope_list[0]
+            assert child.parent_scope is not None
+            assert child.parent_scope is scope
+            break
+t('scope parent_scope set (Bug 4a)', _test_scope_parent)
+
+def _test_scope_find_by_module():
+    """Bug 4b: find_scope_by_module works on VCD scopes."""
+    r = VcdReader(str(JTAG))
+    for scope in r.top_scope_list():
+        results = scope.find_scope_by_module(scope.name)
+        assert len(results) > 0
+        assert results[0] is scope
+        break
+t('find_scope_by_module on VCD (Bug 4b)', _test_scope_find_by_module)
 
 print()
 print('=' * 60)

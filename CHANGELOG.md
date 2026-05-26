@@ -5,7 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
-## v0.9.0 - 2026-05-26
+## v0.8.5 - 2026-05-26
+
+### Fixed
+- Bug 3: rising_edge/falling_edge propagate xz_mask (edge from unknown = unknown edge)
+- Bug 3: downsample propagates xz_mask (chunk any()) and validates chunk_size > 0
+- Bug 4: child_scope_list now sets parent_scope on child VcdScope instances
+- Bug 4: VcdScope.find_scope_by_module() implemented for $module pattern matching
+
+## v0.8.4 - 2026-05-26
 
 ### Fixed
 - Bug 1: clock edge detection now uses actual 0->1/1->0 transitions (not level match); validate clock is 1-bit

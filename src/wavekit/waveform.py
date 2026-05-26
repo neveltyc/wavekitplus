@@ -943,12 +943,21 @@ class Waveform:
             sampled_arr = [func(arr[i : i + chunk_size]) for i in range(0, len(arr), chunk_size)]
             return np.array(sampled_arr)
 
-        return Waveform(
+        if chunk_size <= 0:
+            raise ValueError(f'chunk_size must be positive, got {chunk_size}')
+
+        def _bool_chunk(arr, _func=None):
+            return np.array([np.any(arr[i:i+chunk_size]) for i in range(0, len(arr), chunk_size)])
+
+        result = Waveform(
             value=helper(self.value, func),
             clock=helper(self.clock, np.mean),
             time=helper(self.time, np.mean),
             signal=dataclasses.replace(self.signal, width=None),
         )
+        if self.xz_mask is not None:
+            result.xz_mask = _bool_chunk(self.xz_mask)
+        return result
 
     @staticmethod
     def _count_one(x, width: int):
@@ -1046,12 +1055,17 @@ class Waveform:
         one = self.value[:-1] == 1
         zero = self.value[1:] == 0
         new_value = np.concatenate(([False], one & zero))
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=np.copy(self.clock),
             time=np.copy(self.time),
             signal=Signal('', '', 1, None, False),
         )
+        if self.xz_mask is not None:
+            prev_mask = np.roll(self.xz_mask, -1)
+            prev_mask[-1] = False
+            result.xz_mask = self.xz_mask | prev_mask
+        return result
 
     def rising_edge(self) -> Waveform:
         """Detect 0→1 transitions in a 1-bit waveform.
@@ -1074,12 +1088,17 @@ class Waveform:
         zero = self.value[:-1] == 0
         one = self.value[1:] == 1
         new_value = np.concatenate(([False], one & zero))
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=np.copy(self.clock),
             time=np.copy(self.time),
             signal=Signal('', '', 1, None, False),
         )
+        if self.xz_mask is not None:
+            prev_mask = np.roll(self.xz_mask, -1)
+            prev_mask[-1] = False
+            result.xz_mask = self.xz_mask | prev_mask
+        return result
 
     def bit_count(self) -> Waveform:
         """Count the number of set bits (population count) in each sample value.

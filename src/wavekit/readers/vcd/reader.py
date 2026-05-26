@@ -58,15 +58,28 @@ class VcdScope(Scope):
                 remainder = scope[len(prefix):]
                 child_name = remainder.split('.')[0]
                 children.add(child_name)
-        return [
-            VcdScope(
+        result: list[VcdScope] = []
+        for c in sorted(children):
+            child_path = f'{self._full_path}.{c}' if self._full_path else c
+            child = VcdScope(
                 name=c,
-                full_path=f'{self._full_path}.{c}' if self._full_path else c,
+                full_path=child_path,
                 parser=self._parser,
                 reader=self._reader,
             )
-            for c in sorted(children)
-        ]
+            child.parent_scope = self
+            result.append(child)
+        return result
+
+    def find_scope_by_module(self, module_name: str, depth: int = 0) -> list[Scope]:
+        """Find scopes whose name matches module_name (VCD scope name = module name)."""
+        results: list[Scope] = []
+        if self.name == module_name:
+            results.append(self)
+        if depth >= 0:
+            for child in self.child_scope_list:
+                results.extend(child.find_scope_by_module(module_name, depth - 1 if depth > 0 else depth))
+        return results
 
 
 class VcdReader(Reader):
