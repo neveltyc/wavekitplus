@@ -960,7 +960,7 @@ class Waveform:
         )
         if self.xz_mask is not None:
             result.xz_mask = _bool_chunk(self.xz_mask)
-        return result
+        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     def _count_one(x, width: int):
