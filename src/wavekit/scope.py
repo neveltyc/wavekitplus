@@ -253,7 +253,10 @@ def match_signals(
             for k, p in pattern_list[0].items():
                 if p[0] == '@':
                     name_regex, range_suffix = split_by_range_expr(p[1:])
-                    if match := re.fullmatch(name_regex, sig_bare):
+                    match = re.fullmatch(name_regex, sig_bare)
+                    if not match:
+                        match = re.fullmatch(name_regex, sig.name)
+                    if match:
                         assert len(k) == 0
                         key = (match.groups(),)
                         if len(pattern_list) == 1:

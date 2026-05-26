@@ -120,10 +120,11 @@ def test_vcd_reader_load_matched_waveforms_regex_key_conflict(vcd_path):
         )
 
 
-def test_vcd_reader_module_name_matching_is_unsupported(vcd_path):
+def test_vcd_reader_module_name_matching(vcd_path):
     with VcdReader(str(vcd_path)) as reader:
-        with pytest.raises(NotImplementedError):
-            reader.get_matched_signals('tb.$u0.J_state[3:0]')
+        # $u0 should find scopes named 'u0' via find_scope_by_module
+        matched = reader.get_matched_signals('tb.$u0.J_state[3:0]')
+        assert len(matched) > 0
 
 
 def test_vcd_reader_load_matched_waveforms_uses_signal_range(vcd_path):
