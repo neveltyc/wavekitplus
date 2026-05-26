@@ -75,6 +75,7 @@ class Reader:
         end_time: int | None = None,
         begin_cycle: int | None = None,
         end_cycle: int | None = None,
+        xz_mask: bool = False,
     ) -> Waveform:
         """Load a single signal as a clock-synchronised :class:`~wavekit.Waveform`.
 

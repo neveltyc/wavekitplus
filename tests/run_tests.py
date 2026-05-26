@@ -5,6 +5,7 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 JTAG = ROOT / 'tests' / 'testdata' / 'jtag.vcd'
+XZ_VCD = ROOT / 'tests' / 'testdata' / 'xz_trace.vcd'
 FIXTURES = ROOT / 'src' / 'vcd_analyzer' / 'verify' / 'fixtures'
 EXAMPLES = ROOT / 'example'
 TESTS_PASSED = []
@@ -341,6 +342,84 @@ def _test_cache_ensure_no_double_scan():
     second_len = len(r._tv_cache[tck_sid])
     assert first_len == second_len, f'{first_len} != {second_len}'
 t('cache: double _ensure_cached does not re-scan', _test_cache_ensure_no_double_scan)
+
+
+print()
+print('--- xz_mask ---')
+
+def _test_xz_mask_default_off():
+    """xz_mask defaults to False, no mask generated."""
+    r = VcdReader(str(JTAG))
+    w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    assert w.xz_mask is None
+t('xz_mask default off', _test_xz_mask_default_off)
+
+def _test_xz_mask_basic():
+    """xz_mask=True marks cycles containing x/z."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    assert w.xz_mask is not None
+    assert w.xz_mask.dtype == np.bool_
+    # state has x/z at specific cycles
+    assert np.any(w.xz_mask), 'should find some x/z cycles'
+    # Cycle at t=0: state=xxx -> xz_mask=True
+    # Cycle at t=10: state=001 -> xz_mask=False
+t('xz_mask basic detection', _test_xz_mask_basic)
+
+def _test_xz_mask_backward_compat():
+    """xz_mask=True does not change value arrays."""
+    r = VcdReader(str(JTAG))
+    w_old = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    w_new = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', xz_mask=True)
+    assert np.array_equal(w_old.value, w_new.value)
+    assert np.array_equal(w_old.clock, w_new.clock)
+t('xz_mask backward compat (value unchanged)', _test_xz_mask_backward_compat)
+
+def _test_xz_mask_has_xz():
+    """has_xz property reflects mask presence."""
+    r = VcdReader(str(JTAG))
+    w_no = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    w_yes = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', xz_mask=True)
+    assert w_no.has_xz is False
+    assert w_yes.has_xz is True
+t('has_xz property', _test_xz_mask_has_xz)
+
+def _test_xz_mask_drop_xz():
+    """drop_xz removes cycles with x/z."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    w_clean = w.drop_xz()
+    assert len(w_clean.value) <= len(w.value)
+    if w_clean.xz_mask is not None:
+        assert not np.any(w_clean.xz_mask)
+t('drop_xz removes x/z cycles', _test_xz_mask_drop_xz)
+
+def _test_xz_mask_survives_slice():
+    """xz_mask survives time_slice and cycle_slice."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    w_ts = w.time_slice(10, 30)
+    assert w_ts.xz_mask is not None
+    assert len(w_ts.xz_mask) == len(w_ts.value)
+t('xz_mask survives time_slice', _test_xz_mask_survives_slice)
+
+def _test_xz_mask_survives_arithmetic():
+    """xz_mask survives arithmetic operations."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    w2 = w + 1
+    assert w2.xz_mask is not None
+    assert np.array_equal(w2.xz_mask, w.xz_mask)
+t('xz_mask survives arithmetic', _test_xz_mask_survives_arithmetic)
+
+def _test_xz_mask_xz_cycles():
+    """xz_cycles returns clock numbers of x/z cycles."""
+    r = VcdReader(str(XZ_VCD))
+    w = r.load_waveform('tb.state', clock='tb.clk', xz_mask=True)
+    cycles = w.xz_cycles
+    assert len(cycles) > 0
+    assert np.array_equal(cycles, w.clock[w.xz_mask])
+t('xz_cycles matches clock[mask]', _test_xz_mask_xz_cycles)
 
 print()
 print('=' * 60)

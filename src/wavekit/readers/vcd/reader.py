@@ -150,6 +150,7 @@ class VcdReader(Reader):
         end_time: int | None = None,
         begin_cycle: int | None = None,
         end_cycle: int | None = None,
+        xz_mask: bool = False,
     ) -> Waveform:
         if begin_time is not None and begin_cycle is not None:
             raise ValueError('begin_time and begin_cycle are mutually exclusive')
@@ -234,6 +235,23 @@ class VcdReader(Reader):
             signal=lookup_path,
             clock_offset=clock_offset,
         )
+
+        # Attach x/z masking info if requested
+        if xz_mask:
+            xz_flags = np.array(
+                [bool(re.search(r'[xXzZ]', v[1])) for v in signal_tv],
+                dtype=np.bool_,
+            )
+            xz_vc = np.zeros((len(signal_tv), 2), dtype=np.uint64)
+            xz_vc[:, 0] = np.array([v[0] for v in signal_tv], dtype=np.uint64)
+            xz_vc[:, 1] = xz_flags.astype(np.uint64)
+            xz_wave = self.value_change_to_waveform(
+                xz_vc, clock_value_change,
+                width=1, signed=False,
+                sample_on_posedge=sample_on_posedge,
+                signal='_xz_mask', clock_offset=clock_offset,
+            )
+            full_wave.xz_mask = xz_wave.value.astype(np.bool_)
 
         result = full_wave.time_slice(begin_time, end_time)
 

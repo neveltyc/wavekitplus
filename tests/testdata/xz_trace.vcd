@@ -1,0 +1,36 @@
+$timescale 1ns $end
+$scope module tb $end
+$var wire 1 ! clk $end
+$var wire 3 " state $end
+$upscope $end
+$enddefinitions $end
+#0
+0!
+bxxx "
+#5
+1!
+#10
+0!
+b001 "
+#15
+1!
+#20
+0!
+b010 "
+#25
+1!
+#30
+0!
+bx10 "
+#35
+1!
+#40
+0!
+bzzz "
+#45
+1!
+#50
+0!
+b011 "
+#55
+1!

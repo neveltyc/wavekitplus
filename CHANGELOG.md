@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.8.0 - 2026-05-26
+
+### Added
+- 4-state x/z masking in Waveform: xz_mask attribute, has_xz, xz_cycles, drop_xz
+- load_waveform(xz_mask=True) generates per-cycle x/z presence flags from raw VCD values
+- xz_mask propagation through: mask, filter, time_slice, cycle_slice, take, copy, arithmetic
+- xz_trace.vcd test fixture with xxx/zzz/x10 values
+- 8 xz_mask tests (default off, detection, backward compat, drop, slice survival, arithmetic)
+
+### Changed
+- Waveform.__init__ accepts optional xz_mask parameter
+- vectorized_map propagates xz_mask from source Waveform
+- All Waveform constructors in slice/filter/index methods pass xz_mask
+
 ## v0.7.2 - 2026-05-26
 
 ### Added

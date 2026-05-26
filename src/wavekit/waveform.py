@@ -66,10 +66,12 @@ class Waveform:
         clock: npt.NDArray[np.number],
         time: npt.NDArray[np.number],
         signal: Signal | None = None,
+        xz_mask: npt.NDArray[np.bool_] | None = None,
     ):
         self.clock: npt.NDArray[np.number] = clock
         self.time: npt.NDArray[np.number] = time
         self.signal: Signal = signal if signal is not None else Signal('', '', None, None)
+        self.xz_mask: npt.NDArray[np.bool_] | None = xz_mask
 
         if self.width is None or self.signed is None:
             self.value = value
@@ -122,6 +124,27 @@ class Waveform:
                 names=cast(Any, 'time,clock,value'),
             ),
         )
+
+    @property
+    def has_xz(self) -> bool:
+        """True if this waveform carries 4-state (x/z) masking information."""
+        return self.xz_mask is not None
+
+    @property
+    def xz_cycles(self) -> np.ndarray:
+        """Return absolute clock cycle numbers where x or z was present."""
+        if self.xz_mask is None:
+            return np.array([], dtype=np.uint64)
+        return self.clock[self.xz_mask]
+
+    def drop_xz(self) -> Waveform:
+        """Return a new Waveform with all x/z cycles removed.
+
+        Equivalent to ``self.mask(~self.xz_mask)``.
+        """
+        if self.xz_mask is None or not np.any(self.xz_mask):
+            return self.copy()
+        return self.mask(~self.xz_mask)
 
     def unique_consecutive(self) -> Waveform:
         """Remove consecutive duplicate values, keeping the first occurrence.
@@ -220,15 +243,21 @@ class Waveform:
             mask = mask.value.astype(np.bool_)
         if not isinstance(mask, np.ndarray) or mask.dtype != np.bool_:
             raise TypeError('mask requires boolean numpy array')
-        return Waveform(
+        result = Waveform(
             value=self.value[mask],
             clock=self.clock[mask],
             time=self.time[mask],
             signal=dataclasses.replace(self.signal),
         )
+        if self.xz_mask is not None:
+            result.xz_mask = self.xz_mask[mask]
+        return result
 
     def copy(self) -> Waveform:
-        return self.vectorized_map(lambda x: np.copy(x))
+        result = self.vectorized_map(lambda x: np.copy(x))
+        if self.xz_mask is not None:
+            result.xz_mask = self.xz_mask.copy()
+        return result
 
     @staticmethod
     # @jit
@@ -778,6 +807,7 @@ class Waveform:
             clock=self.clock,
             time=self.time,
             signal=Signal('', '', width, None, False),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
 
     def take(self, indices: npt.NDArray[np.integer] | list[int] | Waveform) -> Waveform:
@@ -818,6 +848,7 @@ class Waveform:
             clock=self.clock[indices],
             time=self.time[indices],
             signal=dataclasses.replace(self.signal),
+            xz_mask=self.xz_mask[indices] if self.xz_mask is not None else None,
         )
 
     def downsample(
@@ -895,7 +926,7 @@ class Waveform:
         map : element-wise (non-vectorized) variant.
         """
         new_value = func(self.value)
-        return Waveform(
+        result = Waveform(
             value=new_value,
             clock=np.copy(self.clock),
             time=np.copy(self.time),
@@ -903,6 +934,9 @@ class Waveform:
                 '', '', width or self.width, None, signed if signed is not None else self.signed
             ),
         )
+        if self.xz_mask is not None:
+            result.xz_mask = self.xz_mask.copy()
+        return result
 
     def map(
         self,
@@ -1209,6 +1243,7 @@ class Waveform:
             clock=self.clock[start_idx:end_idx],
             time=self.time[start_idx:end_idx],
             signal=dataclasses.replace(self.signal),
+            xz_mask=self.xz_mask[start_idx:end_idx] if self.xz_mask is not None else None,
         )
 
     def cycle_slice(
@@ -1258,6 +1293,7 @@ class Waveform:
             clock=self.clock[start_idx:end_idx],
             time=self.time[start_idx:end_idx],
             signal=dataclasses.replace(self.signal),
+            xz_mask=self.xz_mask[start_idx:end_idx] if self.xz_mask is not None else None,
         )
 
     def slice(self, begin_idx: int, end_idx: int, include_end: bool = False) -> Waveform:
@@ -1284,6 +1320,7 @@ class Waveform:
             clock=self.clock[begin_idx:end_idx],
             time=self.time[begin_idx:end_idx],
             signal=dataclasses.replace(self.signal),
+            xz_mask=self.xz_mask[begin_idx:end_idx] if self.xz_mask is not None else None,
         )
 
     def relative(
