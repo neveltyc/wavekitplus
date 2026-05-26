@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.7.2 - 2026-05-26
+
+### Added
+- Signal value-change cache in VcdReader (per-signal tv lists, lazy-fill via _ensure_cached)
+- Single-scan batch caching: loading N signals triggers at most one iter_events pass
+- Cache consistency tests (reload, shared clock, empty signal, no re-scan)
+
+### Changed
+- load_waveform reads value changes from cache instead of direct iter_events call
+
 ## v0.7.1 - 2026-05-26
 
 ### Added

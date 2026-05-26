@@ -75,8 +75,10 @@ class VcdReader(Reader):
         self.file = file
         self._parser = VCDParser(file)
 
-        # Cache time range to avoid re-scanning the file
+       # Cache time range to avoid re-scanning the file
         self._time_range = self._parser.scan_time_range()
+        # Cache per-signal value-change lists to avoid re-scanning on reloads
+        self._tv_cache: dict[str, list[tuple[int, str]]] = {}
 
         # Build top-level scopes from signal data
         top_scopes: set[str] = set()
@@ -102,8 +104,22 @@ class VcdReader(Reader):
         _, t_max = self._time_range
         return t_max if t_max is not None else 0
 
+    def _ensure_cached(self, sids: set[str]) -> None:
+        """Ensure value-change lists for all sids are cached.
+
+        Missing signals trigger a single iter_events scan.
+        Already-cached signals are not re-scanned.
+        """
+        missing = sids - self._tv_cache.keys()
+        if not missing:
+            return
+        for t, sid, val in self._parser.iter_events(sids=missing):
+            self._tv_cache.setdefault(sid, []).append((t, val))
+        # Ensure absent signals get empty lists, to avoid re-scanning
+        for sid in missing:
+            self._tv_cache.setdefault(sid, [])
+
     def _resolve_signal_path(self, path: str) -> str:
-        """Resolve a signal path to a VCDParser sig_id."""
         # Exact match
         for sid, info in self._parser.signals.items():
             if path in info['aliases']:
@@ -167,16 +183,10 @@ class VcdReader(Reader):
                 break
         _, file_range_suffix = split_by_range_expr(lookup_path)
 
-        # Collect value changes for both clock and signal from iter_events
-        signal_tv: list[tuple[int, str]] = []
-        clock_tv: list[tuple[int, str]] = []
-        needed_sids = {signal_sid, clock_sid}
-
-        for t, sid, val in self._parser.iter_events(sids=needed_sids):
-            if sid == clock_sid:
-                clock_tv.append((t, val))
-            elif sid == signal_sid:
-                signal_tv.append((t, val))
+        # Collect value changes from cache (avoids re-scanning on reloads)
+        self._ensure_cached({signal_sid, clock_sid})
+        signal_tv = self._tv_cache[signal_sid]
+        clock_tv = self._tv_cache[clock_sid]
 
         # Convert clock changes to numpy array (always uint64 for clocks)
         all_clock_changes = np.array(

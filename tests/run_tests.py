@@ -290,6 +290,58 @@ def _test_scope_tree():
     raise AssertionError('tb scope not found')
 t('scope tree traversal', _test_scope_tree)
 
+
+print()
+print('--- Cache layer ---')
+
+def _test_cache_hit():
+    """Multiple loads of same signal hit cache (no re-scan)."""
+    r = VcdReader(str(JTAG))
+    w1 = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    w2 = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    assert np.array_equal(w1.value, w2.value)
+    assert np.array_equal(w1.time, w2.time)
+    assert np.array_equal(w1.clock, w2.clock)
+    # Verify cache was populated
+    assert len(r._tv_cache) > 0
+t('cache: reload yields identical results', _test_cache_hit)
+
+def _test_cache_shared_clock():
+    """Multiple signals sharing same clock reuse cached clock data."""
+    r = VcdReader(str(JTAG))
+    w1 = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    w2 = r.load_waveform('tb.u0.J_next[3:0]', clock='tb.tck')
+    # Clock arrays should be identical (same cached tck data)
+    assert np.array_equal(w1.clock, w2.clock)
+    # But signal values differ
+    assert len(w1.value) > 0 and len(w2.value) > 0
+t('cache: shared clock across signals', _test_cache_shared_clock)
+
+def _test_cache_empty_signal():
+    """Signal with no events gets empty cache entry (avoids re-scan)."""
+    # The jtag VCD has no truly empty signals, but we can verify
+    # that _ensure_cached on a nonexistent sid doesn't crash
+    r = VcdReader(str(JTAG))
+    r._ensure_cached({'__nonexistent_sid__'})
+    # Should have recorded empty list
+    assert r._tv_cache.get('__nonexistent_sid__') == []
+t('cache: nonexistent signal cached as empty', _test_cache_empty_signal)
+
+def _test_cache_ensure_no_double_scan():
+    """Calling _ensure_cached twice with same sids doesn't re-scan."""
+    r = VcdReader(str(JTAG))
+    # Find a valid sid
+    for sid, info in r._parser.signals.items():
+        if 'tck' in info['path']:
+            tck_sid = sid
+            break
+    r._ensure_cached({tck_sid})
+    first_len = len(r._tv_cache[tck_sid])
+    r._ensure_cached({tck_sid})
+    second_len = len(r._tv_cache[tck_sid])
+    assert first_len == second_len, f'{first_len} != {second_len}'
+t('cache: double _ensure_cached does not re-scan', _test_cache_ensure_no_double_scan)
+
 print()
 print('=' * 60)
 total = len(TESTS_PASSED) + len(TESTS_FAILED)

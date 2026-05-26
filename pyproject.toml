@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wavekit"
-version = "0.7.0"
+version = "0.7.2"
 description = "wavekit-plus: Fork of wavekit with VCD_ANALYZER VCDParser replacing vcdvcd"
 authors = ["cxzzzz <cxz19961010@outlook.com>", "neveltyc <neveltyc@gmail.com>"]
 readme = "README.md"
