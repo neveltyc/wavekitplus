@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.9.0 - 2026-05-26
+
+### Fixed
+- Bug 1: clock edge detection now uses actual 0->1/1->0 transitions (not level match); validate clock is 1-bit
+- Bug 2: __rlshift__/__rrshift__/__rpow__ now compute correct direction (scalar << wave, scalar >> wave, scalar ** wave)
+- Bug 5: regex signal matching now strips range suffix (\@J_state matches J_state[3:0])
+- Bug 6: load_matched_waveforms raises ValueError when no signals matched (was silent empty dict)
+- Bug 7: concatenate() validates input list, length consistency, clock alignment
+- Bug 8: begin_cycle/end_cycle out-of-bounds raises clean ValueError (was IndexError or negative indexing)
+- Bug 9: __getitem__ with None slice bounds raises clear ValueError
+- Bug 10: pylibfst moved to optional extras[fst], pytest moved to dev dependencies
+
 ## v0.8.3 - 2026-05-26
 
 ### Fixed

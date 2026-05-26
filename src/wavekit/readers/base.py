@@ -368,6 +368,8 @@ class Reader:
             raise Exception(f'clock pattern {clock_pattern} can not match any signal')
 
         matched_signals = self.get_matched_signals(pattern, root_scope=root_scope)
+        if not matched_signals:
+            raise ValueError(f"signal pattern '{pattern}' matched no signals")
 
         load_kwargs: dict[str, Any] = dict(
             xz_value=xz_value,

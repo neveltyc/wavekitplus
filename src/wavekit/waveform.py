@@ -562,7 +562,14 @@ class Waveform:
         return Waveform._merge_xz_mask(result, other)
 
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
-        return cast(Any, other).__pow__(self)
+        self._check_sign(other)
+        new_value = self._get_value(other) ** self.value
+        return Waveform(
+            value=new_value,
+            clock=self.clock,
+            time=self.time,
+            signal=Signal('', '', None, None, self.signed),
+        )
 
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
@@ -633,7 +640,18 @@ class Waveform:
         return Waveform._merge_xz_mask(result, other)
 
     def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
-        return self.__lshift__(other)
+        self._check_logical_op_type(other)
+        new_width = self.width
+        if isinstance(other, Waveform):
+            new_width = self._infer_logical_op_width(other)
+        new_value = self._get_value(other) << self.value
+        result = Waveform(
+            value=new_value,
+            clock=self.clock,
+            time=self.time,
+            signal=Signal('', '', new_width, None, self.signed),
+        )
+        return result
 
     @staticmethod
     # @jit
@@ -671,15 +689,11 @@ class Waveform:
         if isinstance(other, float):
             raise TypeError('Can only perform logical operations on 64-bit integers')
 
+        new_width = self.width
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
-        else:
-            new_width = self._infer_logical_op_width(
-                other,
-                inferred_width=max((self.width or 0) - other, 0),
-            )
 
-        new_value = self._rshift(self.value, self._get_value(other))
+        new_value = self._get_value(other) >> self.value
 
         result = Waveform(
             value=new_value,
@@ -826,6 +840,11 @@ class Waveform:
             msb   = wide_bus[31]     # single bit       → width=1
         """
         if isinstance(index, slice):
+            if index.start is None or index.stop is None:
+                raise ValueError(
+                    'Waveform slice must be [high:low], both bounds required '
+                    '(e.g. wave[7:0])'
+                )
             if index.step is not None:
                 raise Exception('slice with step is not supported')
 
@@ -1171,6 +1190,18 @@ class Waveform:
         """
         if not all(not w.signed for w in waves):
             raise Exception('all waveforms should be unsigned')
+        if not waves:
+            raise ValueError('concatenate() requires at least one waveform')
+
+        n = len(waves[0].value)
+        for w in waves:
+            if len(w.value) != n:
+                raise ValueError(
+                    f'All waveforms must have the same length '
+                    f'(expected {n}, got {len(w.value)})'
+                )
+            if not np.array_equal(w.clock, waves[0].clock):
+                raise ValueError('All waveforms must share the same clock')
 
         widths = [w.width for w in waves]
         if any(w is None for w in widths):

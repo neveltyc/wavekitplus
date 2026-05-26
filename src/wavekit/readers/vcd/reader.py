@@ -197,15 +197,54 @@ class VcdReader(Reader):
         if len(all_clock_changes) == 0:
             raise ValueError(f"clock signal '{clock_path}' has no value changes")
 
-        # Determine clock edge timestamps for the sampling edge
-        sample_value = 1 if sample_on_posedge else 0
-        clock_edge_times = all_clock_changes[all_clock_changes[:, 1] == sample_value, 0]
+        # Validate clock is 1-bit
+        clock_info = self._parser.signals[clock_sid]
+        clock_width = clock_info['width']
+        if clock_width != 1:
+            raise ValueError(
+                f"clock signal '{clock_path}' has width {clock_width}; "
+                'only 1-bit clocks are supported'
+            )
+
+        # Detect actual clock edges (0->1 or 1->0) rather than matching target level
+        clock_values = all_clock_changes[:, 1]
+        clock_prev = np.roll(clock_values, 1)
+        if sample_on_posedge:
+            clock_edge_mask = (clock_prev == 0) & (clock_values == 1)
+        else:
+            clock_edge_mask = (clock_prev == 1) & (clock_values == 0)
+        # First change is never an edge (no previous value to compare)
+        clock_edge_mask[0] = False
+        clock_edge_times = all_clock_changes[clock_edge_mask, 0]
+
+        if len(clock_edge_times) == 0:
+            raise ValueError(
+                f"clock signal '{clock_path}' has no {'rising' if sample_on_posedge else 'falling'} edges"
+            )
 
         # Convert begin_cycle/end_cycle to begin_time/end_time
         if begin_cycle is not None:
+            if not (0 <= begin_cycle < len(clock_edge_times)):
+                raise ValueError(
+                    f'begin_cycle={begin_cycle} out of range '
+                    f'(clock has {len(clock_edge_times)} edges)'
+                )
             begin_time = int(clock_edge_times[begin_cycle])
         if end_cycle is not None:
+            if not (0 <= end_cycle <= len(clock_edge_times)):
+                raise ValueError(
+                    f'end_cycle={end_cycle} out of range '
+                    f'(clock has {len(clock_edge_times)} edges)'
+                )
             end_time = int(clock_edge_times[end_cycle])
+        if (
+            begin_cycle is not None
+            and end_cycle is not None
+            and begin_cycle >= end_cycle
+        ):
+            raise ValueError(
+                f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}'
+            )
 
         # Compute clock_offset = number of sampling edges before begin_time
         begin_time_actual = begin_time if begin_time is not None else 0

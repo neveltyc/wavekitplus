@@ -506,6 +506,122 @@ def _test_xz_mask_eval():
     assert len(result.xz_mask) == len(result.value)
 t('xz_mask through eval (Bug 6)', _test_xz_mask_eval)
 
+
+print()
+print('--- Bug fixes v0.9.0 ---')
+
+def _test_clock_edge_detection():
+    """Bug 1: clock edge is actual 0->1/1->0 transition, not level match."""
+    r = VcdReader(str(JTAG))
+    w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', sample_on_posedge=False)
+    assert len(w.value) > 0
+    # posedge variant also works
+    w2 = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', sample_on_posedge=True)
+    assert len(w2.value) > 0
+    # Multi-bit clock should raise
+    multi_bit_path = 'tb.u0.J_state[3:0]'
+    try:
+        r.load_waveform('tb.u0.J_state[3:0]', clock=multi_bit_path)
+        raise AssertionError('should have raised ValueError for multi-bit clock')
+    except ValueError as e:
+        assert '1-bit' in str(e) or 'width' in str(e)
+t('clock edge detection (Bug 1)', _test_clock_edge_detection)
+
+def _test_reverse_shift_ops():
+    """Bug 2: __rlshift__, __rrshift__, __rpow__ compute correct direction."""
+    from wavekit import VcdReader
+    r = VcdReader(str(JTAG))
+    w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    # scalar << wave: element-wise shift
+    result = 1 << w
+    assert result.width is not None
+    # scalar >> wave
+    result2 = 8 >> w
+    assert result2.width is not None
+    # scalar ** wave
+    result3 = 2 ** w
+    assert result3.width is None  # power may change width
+t('reverse shift ops (Bug 2)', _test_reverse_shift_ops)
+
+def _test_regex_matches_bare_signal():
+    """Bug 5: regex @pattern matches bare signal name without range."""
+    from wavekit import VcdReader
+    r = VcdReader(str(JTAG))
+    # @J_state should match J_state[3:0]
+    sigs = r.get_matched_signals(r'tb.u0.@J_state')
+    assert len(sigs) > 0, '@J_state should match signals with range suffix'
+t('regex matches bare signal name (Bug 5)', _test_regex_matches_bare_signal)
+
+def _test_load_matched_empty_error():
+    """Bug 6: load_matched_waveforms raises on no signal match."""
+    r = VcdReader(str(JTAG))
+    try:
+        r.load_matched_waveforms('tb.nonexistent_signal_xyz', 'tb.tck')
+        raise AssertionError('should have raised ValueError')
+    except ValueError as e:
+        assert 'matched no signals' in str(e)
+t('load_matched_waveforms empty error (Bug 6)', _test_load_matched_empty_error)
+
+def _test_concatenate_validation():
+    """Bug 7: concatenate() validates inputs."""
+    from wavekit import Waveform
+    r = VcdReader(str(JTAG))
+    w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    # Empty list
+    try:
+        Waveform.concatenate([])
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+    # Different lengths should raise
+    w_short = w.time_slice(0, 5)
+    try:
+        Waveform.concatenate([w, w_short])
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+t('concatenate input validation (Bug 7)', _test_concatenate_validation)
+
+def _test_cycle_bounds():
+    """Bug 8: begin_cycle/end_cycle out-of-bounds raises clean error."""
+    r = VcdReader(str(JTAG))
+    # Negative cycle
+    try:
+        r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', begin_cycle=-1)
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+    # Too large cycle
+    try:
+        r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', begin_cycle=99999)
+        raise AssertionError('should have raised')
+    except (ValueError, IndexError):
+        pass
+    # begin > end
+    try:
+        r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck', begin_cycle=10, end_cycle=5)
+        raise AssertionError('should have raised')
+    except ValueError:
+        pass
+t('cycle bounds check (Bug 8)', _test_cycle_bounds)
+
+def _test_getitem_none_bounds():
+    """Bug 9: __getitem__ with None slice bounds raises clear error."""
+    from wavekit import VcdReader
+    r = VcdReader(str(JTAG))
+    w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
+    try:
+        _ = w[:0]
+        raise AssertionError('should have raised')
+    except ValueError as e:
+        assert 'both bounds required' in str(e)
+    try:
+        _ = w[7:]
+        raise AssertionError('should have raised')
+    except ValueError as e:
+        assert 'both bounds required' in str(e)
+t('getitem None bounds error (Bug 9)', _test_getitem_none_bounds)
+
 print()
 print('=' * 60)
 total = len(TESTS_PASSED) + len(TESTS_FAILED)
