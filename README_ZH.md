@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.9.1-3366cc?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.9.2-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
   <img alt="Tests" src="https://img.shields.io/badge/tests-passing-22aa55?style=flat-square">
@@ -47,7 +47,7 @@
 - **输入防御** — 16 项资源上限抵御恶意/畸形 VCD
 - **许可证澄清** — MIT + BSD (NumPy)，没有 GPL 或 Artistic 条款
 
-所有 wavekit 原有 API 不变，已有测试全部通过。
+核心 wavekit 使用流程保持向后兼容；本 fork 的新增能力通过可选参数和辅助方法提供。
 
 ## 安装
 
@@ -89,6 +89,8 @@ with VcdReader("sim.vcd") as r:
 ### 实例：测量 AXI 读延迟
 
 ```python
+from wavekit import Pattern, VcdReader
+
 with VcdReader("axi_tb.vcd") as r:
     clk = "tb.clk"
     arvalid = r.load_waveform("tb.dut.arvalid", clock=clk)
@@ -159,10 +161,12 @@ with VcdReader("axi_tb.vcd") as r:
 
 | 版本 | 亮点 |
 |:-----|:-----|
-| `0.9.1` | Python 3.9 兼容, __getitem__ 边界检查, root_scope 嵌套路径 |
+| `0.9.2` | root_scope 信号匹配、VCD subrange metadata、严格 bit 选择 |
+| `0.9.1` | root_scope 相对匹配辅助函数和 scoped path 清理 |
+| `0.9.0` | 共享二元运算检查和三个 reader 后端的收尾逻辑 |
+| `0.8.16` | Python 3.9 兼容, __getitem__ 边界检查, root_scope 嵌套路径 |
 | `0.8.15` | signed+subrange 修复, mask 对齐, alias scope tree |
 | `0.8.14` | select_clock_edges 公共函数, FST/FSDB 边沿检测 |
-| `0.8.13` | Cython future guard, 对齐全覆盖, FST/FSDB cycle bounds |
 | `0.8.0` | 4-state x/z 掩码层 |
 | `0.7.0` | 用 VCD_ANALYZER VCDParser 替换 vcdvcd |
 
@@ -175,6 +179,22 @@ PYTHONPATH=src python tests/run_tests.py
 ```
 
 覆盖 VCDParser、VcdReader、iverilog 生成 VCD、缓存、xz_mask 及边界情况。
+如果安装了开发依赖，`python -m pytest -q` 会运行更完整的 pytest 套件。
+
+## 发布 tag
+
+从已经准备好版本号和文档的工作树运行 PowerShell 发布脚本：
+
+```powershell
+.\release_tag.ps1 -Version v0.9.2 -CommitMessage "release: v0.9.2"
+```
+
+脚本会检查版本文档、运行 `tests/run_tests.py`、在可用时运行 pytest、保护 Iverilog
+测试会改写日期的已跟踪 VCD fixture、提交发布改动，并创建 annotated Git tag。之后推送：
+
+```bash
+git push origin main --follow-tags
+```
 
 ## 许可证
 

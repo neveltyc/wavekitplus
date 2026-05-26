@@ -548,6 +548,13 @@ class Waveform:
             width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: 64),
         )
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
+        if not isinstance(other, Waveform):
+            raise NotImplementedError(
+                'scalar ** waveform is not supported because exponent values can produce '
+                'unbounded result widths. Use waveform.map(lambda v: base ** int(v), '
+                'width=...) with an explicit width, or use scalar << waveform when the '
+                'operation is a power-of-two shift.'
+            )
         return self._binary_op(
             other, op=self._pow, kind='arith', reverse=True,
             width_fn=None,
@@ -618,7 +625,7 @@ class Waveform:
         return Waveform._merge_xz_mask(result, other)
 
     def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_logical_op_type(other)
+        self._check_binary_compat(other, kind='shift')
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
         elif self.width and isinstance(other, int):
@@ -626,7 +633,12 @@ class Waveform:
             new_width = max(other.bit_length() + max_shift, self.width)
         else:
             new_width = self.width
-        new_value = self._get_value(other) << self.value
+        shift_value = (
+            self.value.astype(np.object_)
+            if new_width is not None and new_width > 64
+            else self.value
+        )
+        new_value = self._get_value(other) << shift_value
         result = Waveform(
             value=new_value,
             clock=self.clock,
@@ -810,18 +822,23 @@ class Waveform:
                     '(e.g. wave[7:0])'
                 )
             if index.step is not None:
-                raise Exception('slice with step is not supported')
+                raise ValueError('slice with step is not supported')
             if index.start < index.stop:
-                raise Exception('only support little-endian slicing')
-            if self.width is not None:
-                if index.stop < 0 or index.start < 0:
-                    raise ValueError('Bit indices must be non-negative')
-                if index.start >= self.width:
-                    raise ValueError(f'High bit {index.start} >= width {self.width}')
+                raise ValueError('only support little-endian slicing')
+            if index.stop < 0 or index.start < 0:
+                raise ValueError('Bit indices must be non-negative')
+            if self.width is None:
+                raise ValueError('Cannot bit-select waveform with width=None')
+            if index.start >= self.width:
+                raise ValueError(f'High bit {index.start} >= width {self.width}')
             start = index.stop
             width = (index.start - index.stop) + 1
         elif isinstance(index, int):
-            if self.width is not None and (index < 0 or index >= self.width):
+            if index < 0:
+                raise ValueError(f'Bit index must be non-negative, got {index}')
+            if self.width is None:
+                raise ValueError('Cannot bit-select waveform with width=None')
+            if index >= self.width:
                 raise ValueError(f'Bit index {index} out of range for width {self.width}')
             start = index
             width = 1

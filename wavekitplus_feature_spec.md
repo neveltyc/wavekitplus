@@ -1,5 +1,10 @@
 # wavekitplus 功能增强开发文档
 
+> Status: historical feature plan. Phase 1 (signal cache) shipped in v0.7.2 and
+> Phase 2 (4-state x/z mask) shipped in v0.8.0, with additional hardening through
+> v0.9.x. Use README.md, CHANGELOG.md, AGENTS.md, and source docstrings for the
+> current release workflow and exact behavior.
+
 ## 概述
 
 在 v0.7.0（替换 vcdvcd 后端）基础上，分两个阶段增强 wavekitplus 的能力。所有改动必须保持与 wavekit-mcp 的兼容性——wavekit-mcp 通过 `import wavekit` 使用本库，不能破坏任何现有的公开接口。

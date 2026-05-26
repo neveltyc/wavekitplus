@@ -16,13 +16,17 @@ src/wavekit/**/*.cpp
 .nox/
 .trae/
 .hypothesis/
+.test_artifacts/
 
 example/**/*.vcd
 example/**/*.vvp
+tests/testdata/*.vvp
+*.vvp
 
 .vscode/
 .pypirc
 poetry.toml
+release_tag.local.ps1
 
 .claude/
 .opencode/

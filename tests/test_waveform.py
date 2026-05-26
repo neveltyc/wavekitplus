@@ -118,6 +118,13 @@ def test_mod_pow_ne():
     assert (wave != other).width == 1
 
 
+def test_scalar_pow_waveform_rejected():
+    wave = build_waveform([3, 5], width=4)
+
+    with pytest.raises(NotImplementedError, match=r'scalar \*\* waveform'):
+        _ = 2**wave
+
+
 # ==========================================
 # Logical Operations
 # ==========================================
@@ -158,6 +165,15 @@ def test_shift_ops():
     assert (wave >> 2).width == 6
 
 
+def test_scalar_lshift_waveform_exact_above_64bit():
+    shift = build_waveform([63, 64, 65], width=7)
+    result = 1 << shift
+
+    assert result.value.tolist() == [1 << 63, 1 << 64, 1 << 65]
+    assert result.value.dtype == np.object_
+    assert result.width == 66
+
+
 def test_logical_width_errors():
     wave = build_waveform([1, 2, 3], width=4)
     other = build_waveform([1, 2, 3], width=5)
@@ -178,12 +194,26 @@ def test_getitem_bitsel():
     assert np.all(wave[3:2].value == np.array([2, 1]))
 
 
-def test_getitem_errors():
+def test_getitem_step_and_reverse_slice_raise_valueerror():
     wave = build_waveform([0b1011, 0b0101], width=4)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         _ = wave[3:0:2]
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         _ = wave[1:3]
+
+
+def test_getitem_width_none_negative_raises_valueerror():
+    wave = build_waveform([1, 2], width=None)
+
+    with pytest.raises(ValueError, match='non-negative'):
+        _ = wave[-1]
+
+
+def test_getitem_width_none_slice_raises_valueerror():
+    wave = build_waveform([1, 2], width=None)
+
+    with pytest.raises(ValueError, match='width=None'):
+        _ = wave[1:0]
 
 
 def test_time_slice():

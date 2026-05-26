@@ -2,19 +2,42 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.2 - 2026-05-26
+
+### Added
+- release_tag.ps1: repeatable release helper that runs tests, preserves generated
+  VCD fixtures, commits staged release changes, and creates an annotated tag.
+
+### Changed
+- Documentation refreshed for current v0.9.x behavior and release workflow.
+- AGENTS.md shortened into a quick orientation guide for future agents.
+
+### Fixed
+- get_matched_signals(root_scope=...) now delegates to the relative signal
+  matcher, preserving nested paths, range suffixes, and full signal names.
+- VCD subrange loads now keep requested-range metadata, e.g. data[3:0] stays
+  data[3:0] instead of reporting the resolved full-width alias.
+- scalar << waveform now computes exact values above 64 bits by using object
+  dtype when needed; scalar ** waveform is rejected with an explicit map()
+  alternative.
+- Waveform bit selection now raises ValueError for width=None, negative indices,
+  stepped slices, and reverse slices.
+- Reader finalization now checks waveform value/clock/time/xz_mask invariants.
+
 ## v0.9.1 - 2026-05-26
 
 ### Changed
-- root_scope: rewritten as match_signals_relative/match_scopes_relative in scope.py
-  (supports nested paths, regex groups, range suffixes, brace expansion)
-- base.py: root_scope branch simplified from 24-line special case to 2-line delegation
+- root_scope helpers added as match_signals_relative/match_scopes_relative in
+  scope.py (nested paths, regex groups, range suffixes, brace expansion).
+- get_matched_scopes(root_scope=...) now delegates to the relative scope matcher.
+  get_matched_signals(root_scope=...) keeps its compatibility branch in base.py.
 
 ## v0.9.0 - 2026-05-26
 
 ### Changed
-- **Binary ops refactored** — 28 methods consolidated through _binary_op factory,
-  _check_binary_compat. All cross-cutting checks (alignment, width, xz_mask)
-  now apply uniformly. Eliminates 'forward fixed, reverse missed' regressions.
+- **Binary ops refactored** — non-shift binary operators use the _binary_op
+  factory and _check_binary_compat. Shift operators keep specialized paths but
+  share the same compatibility checks where applicable.
 - **Reader finalize unified** — _finalize_loaded_waveform() shared by VCD/FST/FSDB.
   Always loads unsigned first, slices, then converts to signed. Ensures name
   and signal metadata consistency across all three backends.

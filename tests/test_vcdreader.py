@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from wavekit import VcdReader, Waveform
+from wavekit import Signal, VcdReader, Waveform
 from wavekit.readers.base import Reader
 from wavekit.readers.expr_parser import extract_wave_paths
 from wavekit.readers.pattern_parser import (
@@ -16,6 +16,49 @@ from wavekit.readers.pattern_parser import (
 @pytest.fixture()
 def vcd_path():
     return Path(__file__).resolve().parent / 'testdata' / 'jtag.vcd'
+
+
+@pytest.fixture()
+def root_scope_vcd_path(tmp_path):
+    path = tmp_path / 'root_scope.vcd'
+    path.write_text(
+        '\n'.join(
+            [
+                '$timescale 1ns $end',
+                '$scope module tb $end',
+                '$scope module dut $end',
+                '$var wire 1 ! clk $end',
+                '$var wire 16 " data [15:0] $end',
+                '$scope module u0 $end',
+                '$var wire 1 # valid $end',
+                '$var wire 8 $ data [7:0] $end',
+                '$upscope $end',
+                '$upscope $end',
+                '$upscope $end',
+                '$enddefinitions $end',
+                '#0',
+                '0!',
+                'b1010110011110000 "',
+                '1#',
+                'b11001010 $',
+                '#5',
+                '1!',
+                '#10',
+                '0!',
+                '#15',
+                '1!',
+                '#20',
+                '0!',
+                '',
+            ]
+        )
+    )
+    return path
+
+
+def _dut_scope(reader):
+    tb = next(scope for scope in reader.top_scope_list() if scope.name == 'tb')
+    return next(scope for scope in tb.child_scope_list if scope.name == 'dut')
 
 
 def test_pattern_parsing():
@@ -65,6 +108,65 @@ def test_vcd_reader_load_waveform_without_range(vcd_path):
 
     assert j_next.name == 'tb.u0.J_next[3:0]'
     assert j_next.width == 4
+
+
+def test_get_matched_signals_root_scope_relative_nested_signal(root_scope_vcd_path):
+    with VcdReader(str(root_scope_vcd_path)) as reader:
+        dut = _dut_scope(reader)
+        matched = reader.get_matched_signals('u0.valid', root_scope=dut)
+
+    assert set(matched) == {()}
+    assert matched[()].full_name == 'tb.dut.u0.valid'
+
+
+def test_get_matched_signals_root_scope_relative_range_suffix(root_scope_vcd_path):
+    with VcdReader(str(root_scope_vcd_path)) as reader:
+        dut = _dut_scope(reader)
+        matched = reader.get_matched_signals('data[7:4]', root_scope=dut)
+
+    assert set(matched) == {()}
+    assert matched[()].width == 4
+    assert matched[()].full_name == 'tb.dut.data[7:4]'
+
+
+def test_get_matched_signals_root_scope_relative_two_level_range(root_scope_vcd_path):
+    with VcdReader(str(root_scope_vcd_path)) as reader:
+        dut = _dut_scope(reader)
+        matched = reader.get_matched_signals('u0.data[3:0]', root_scope=dut)
+
+    assert set(matched) == {()}
+    assert matched[()].width == 4
+    assert matched[()].full_name == 'tb.dut.u0.data[3:0]'
+
+
+def test_vcd_subrange_metadata_matches_requested_range(root_scope_vcd_path):
+    with VcdReader(str(root_scope_vcd_path)) as reader:
+        wave = reader.load_waveform('tb.dut.data[3:0]', clock='tb.dut.clk')
+
+    assert wave.width == 4
+    assert wave.name == 'tb.dut.data[3:0]'
+    assert wave.signal.full_name == 'tb.dut.data[3:0]'
+
+
+def test_vcd_no_range_metadata_uses_resolved_full_range(root_scope_vcd_path):
+    with VcdReader(str(root_scope_vcd_path)) as reader:
+        wave = reader.load_waveform('tb.dut.data', clock='tb.dut.clk')
+
+    assert wave.width == 16
+    assert wave.name == 'tb.dut.data[15:0]'
+    assert wave.signal.full_name == 'tb.dut.data[15:0]'
+
+
+def test_finalize_loaded_waveform_rejects_mismatched_lengths():
+    waveform = Waveform(
+        value=np.array([1, 2], dtype=np.uint64),
+        clock=np.array([0], dtype=np.uint64),
+        time=np.array([0, 1], dtype=np.uint64),
+        signal=Signal('bad', 'bad', 1, None, False),
+    )
+
+    with pytest.raises(AssertionError, match='clock length'):
+        Reader._finalize_loaded_waveform(waveform, 'bad', signed=False)
 
 
 def test_vcd_reader_subrange_load(vcd_path):

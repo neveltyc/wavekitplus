@@ -528,7 +528,7 @@ def _test_clock_edge_detection():
 t('clock edge detection (Bug 1)', _test_clock_edge_detection)
 
 def _test_reverse_shift_ops():
-    """Bug 2: __rlshift__, __rrshift__, __rpow__ compute correct direction."""
+    """Bug 2: reverse shifts compute correct direction; scalar ** waveform is rejected."""
     from wavekit import VcdReader
     r = VcdReader(str(JTAG))
     w = r.load_waveform('tb.u0.J_state[3:0]', clock='tb.tck')
@@ -538,9 +538,12 @@ def _test_reverse_shift_ops():
     # scalar >> wave
     result2 = 8 >> w
     assert result2.width is not None
-    # scalar ** wave
-    result3 = 2 ** w
-    assert result3.width is None  # power may change width
+    # scalar ** wave is intentionally rejected; use map(width=...) for that API.
+    try:
+        2 ** w
+        raise AssertionError('scalar ** waveform should raise NotImplementedError')
+    except NotImplementedError:
+        pass
 t('reverse shift ops (Bug 2)', _test_reverse_shift_ops)
 
 def _test_regex_matches_bare_signal():

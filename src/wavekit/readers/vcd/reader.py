@@ -346,6 +346,7 @@ class VcdReader(Reader):
             full_wave.xz_mask = xz_wave.value.astype(np.bool_)
 
         result = full_wave.time_slice(begin_time, end_time)
+        display_path = signal_path if range_suffix else lookup_path
 
         # Apply sub-range slice if user specified a range
         if range_suffix:
@@ -376,7 +377,7 @@ class VcdReader(Reader):
                 slice_width = high - low + 1
                 if slice_width < width:
                     result = result[high:low]
-        return self._finalize_loaded_waveform(result, lookup_path, signed=signed)
+        return self._finalize_loaded_waveform(result, display_path, signed=signed)
 
     def close(self):
         pass

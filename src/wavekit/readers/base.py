@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import ast
-import re
 from abc import abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal
 
 import numpy as np
 
-from ..scope import (Scope, _prepend_scope_name, match_scopes, match_signals, match_scopes_relative, match_signals_relative)
+from ..scope import Scope, match_scopes, match_scopes_relative, match_signals, match_signals_relative
 from ..signal import Signal
 from ..waveform import Waveform
 from .expr_parser import extract_wave_paths
@@ -16,7 +15,6 @@ from .pattern_parser import (
     PatternMap,
     expand_brace_pattern,
     split_by_hierarchy,
-    split_by_range_expr,
 )
 from .value_change import value_change_to_value_array
 
@@ -177,6 +175,16 @@ class Reader:
         return [root_scope] if root_scope is not None else self.top_scope_list()
 
     @staticmethod
+    def _assert_waveform_invariants(waveform: Waveform) -> None:
+        n = len(waveform.value)
+        if len(waveform.clock) != n:
+            raise AssertionError(f'clock length {len(waveform.clock)} != value length {n}')
+        if len(waveform.time) != n:
+            raise AssertionError(f'time length {len(waveform.time)} != value length {n}')
+        if waveform.xz_mask is not None and len(waveform.xz_mask) != n:
+            raise AssertionError(f'xz_mask length {len(waveform.xz_mask)} != value length {n}')
+
+    @staticmethod
     def _finalize_loaded_waveform(
         waveform: Waveform,
         signal_path: str,
@@ -188,6 +196,8 @@ class Reader:
         All readers should call this as the last step of load_waveform().
         The waveform passed in must already be subranged and unsigned.
         """
+        Reader._assert_waveform_invariants(waveform)
+
         if signed:
             waveform = waveform.as_signed()
 
@@ -201,6 +211,7 @@ class Reader:
             signed=signed,
         )
 
+        Reader._assert_waveform_invariants(waveform)
         return waveform
 
     def get_matched_signals(
@@ -257,33 +268,11 @@ class Reader:
             expand_brace_pattern(p) for p in split_by_hierarchy(pattern)
         ]
 
-        roots = self._search_roots(root_scope)
         if root_scope is not None:
-            # Single-element pattern, relative to root_scope — match signals directly
-            matched_signals: dict[tuple[Any, ...], Signal] = {}
-            for scope in roots:
-                for sig in scope.signal_list:
-                    sig_bare, _ = split_by_range_expr(sig.name)
-                    for k, p in expanded_pattern_list[0].items():
-                        if p[0] == '@':
-                            name_regex, _ = split_by_range_expr(p[1:])
-                            if re.fullmatch(name_regex, sig_bare) or re.fullmatch(name_regex, sig.name):
-                                matched_signals[k] = sig
-                        else:
-                            p_bare, _ = split_by_range_expr(p)
-                            if p_bare == sig_bare:
-                                matched_signals[k] = sig
-                # Also search child scopes
-                for child in scope.child_scope_list:
-                    cm = match_signals(child, expanded_pattern_list)
-                    for ck, cv in cm.items():
-                        full_key = (child.name,) + ck if isinstance(ck, tuple) else ck
-                        if full_key in matched_signals:
-                            raise Exception(f'pattern matches more than one result')
-                        matched_signals[full_key] = _prepend_scope_name(cv, child.name)
-            return matched_signals
+            return match_signals_relative(root_scope, expanded_pattern_list)
+
         matched_signals: dict[tuple[Any, ...], Signal] = {}
-        for scope in roots:
+        for scope in self._search_roots(root_scope):
             matched_signals = combine_dict(
                 matched_signals,
                 match_signals(scope, expanded_pattern_list),

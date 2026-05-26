@@ -1,5 +1,10 @@
 # wavekit-plus 开发文档
 
+> Status: historical implementation plan. The VCD_ANALYZER backend is already
+> integrated in the current tree, with later cache, x/z mask, edge-detection,
+> and v0.9 refactors layered on top. Use README.md, CHANGELOG.md, AGENTS.md, and
+> source docstrings for current behavior; keep this file as design context.
+
 ## 目标
 
 Fork wavekit，用 VCD_ANALYZER 的 `VCDParser` 替换 vcdvcd 依赖，获得流式解析、Extended VCD 支持、bit-explosion 自动重组、输入防御。上层的 Waveform 类和 Pattern 引擎不动。
