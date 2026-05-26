@@ -318,3 +318,130 @@ def match_scopes(
         return {}
 
     return _traverse_scope_tree(scope, descendant_scope_pattern_list, leaf)
+
+
+
+# ── Relative matchers for root_scope support ─────────────────────────
+
+def _parse_range_suffix(range_suffix):
+    m = re.fullmatch(r'\[(\d+)(?::(\d+))?\]', range_suffix)
+    if not m:
+        raise ValueError(f'invalid range suffix: {range_suffix!r}')
+    hi = int(m.group(1))
+    lo = int(m.group(2)) if m.group(2) is not None else hi
+    return hi, lo
+
+
+def _build_signal_with_range(sig, range_suffix):
+    if not range_suffix:
+        return sig
+    hi, lo = _parse_range_suffix(range_suffix)
+    sig_bare, _ = split_by_range_expr(sig.name)
+    new_name = f'{sig_bare}{range_suffix}'
+    if '.' in sig.full_name:
+        parent = sig.full_name.rsplit('.', 1)[0]
+        new_full_name = f'{parent}.{new_name}'
+    else:
+        new_full_name = new_name
+    return Signal(
+        name=new_name,
+        full_name=new_full_name,
+        width=hi - lo + 1,
+        range=None,
+        signed=False,
+    )
+
+
+def _combine_keys(outer_key, inner_key):
+    if not isinstance(outer_key, tuple):
+        outer_key = (outer_key,) if outer_key != () else ()
+    if not isinstance(inner_key, tuple):
+        inner_key = (inner_key,) if inner_key != () else ()
+    return outer_key + inner_key
+
+
+def _match_local_signals(scope, pattern_map):
+    out = {}
+    for sig in scope.signal_list:
+        sig_bare, _sig_range = split_by_range_expr(sig.name)
+        for key, p in pattern_map.items():
+            matched = False
+            capture_key = ()
+            p_range = ''
+            if p[0] == '@':
+                name_regex, p_range = split_by_range_expr(p[1:])
+                m = re.fullmatch(name_regex, sig_bare)
+                if not m:
+                    m = re.fullmatch(name_regex, sig.name)
+                if m:
+                    matched = True
+                    capture_key = m.groups() or ()
+            else:
+                p_bare, p_range = split_by_range_expr(p)
+                if p_bare == sig_bare:
+                    matched = True
+            if matched:
+                final_key = _combine_keys(key, capture_key)
+                result_sig = _build_signal_with_range(sig, p_range)
+                out[final_key] = result_sig
+    return out
+
+
+def _match_child_scopes(scope, pattern_map):
+    out = {}
+    for child in scope.child_scope_list:
+        for key, p in pattern_map.items():
+            if p[0] == '@':
+                m = re.fullmatch(p[1:], child.name)
+                if m:
+                    capture_key = m.groups() or ()
+                    out[_combine_keys(key, capture_key)] = child
+            else:
+                if p == child.name:
+                    out[key] = child
+    return out
+
+
+def match_signals_relative(scope, pattern_parts):
+    if not pattern_parts:
+        return {}
+    head = pattern_parts[0]
+    tail = pattern_parts[1:]
+    out = {}
+    if not tail:
+        for key, sig in _match_local_signals(scope, head).items():
+            if key in out:
+                raise Exception(f'pattern matches more than one result: {key}')
+            out[key] = sig
+        return out
+    for key, child_scope in _match_child_scopes(scope, head).items():
+        child_matches = match_signals_relative(child_scope, tail)
+        for ck, cv in child_matches.items():
+            combined = _combine_keys(key, ck)
+            if combined in out:
+                raise Exception(f'pattern matches more than one result: {combined}')
+            out[combined] = cv
+    return out
+
+
+def match_scopes_relative(scope, pattern_parts):
+    if not pattern_parts:
+        return {}
+    head = pattern_parts[0]
+    tail = pattern_parts[1:]
+    if not tail:
+        out = {}
+        for key, child in _match_child_scopes(scope, head).items():
+            if key in out:
+                raise Exception(f'pattern matches more than one result: {key}')
+            out[key] = child
+        return out
+    out = {}
+    for key, child_scope in _match_child_scopes(scope, head).items():
+        child_matches = match_scopes_relative(child_scope, tail)
+        for ck, cv in child_matches.items():
+            combined = _combine_keys(key, ck)
+            if combined in out:
+                raise Exception(f'pattern matches more than one result: {combined}')
+            out[combined] = cv
+    return out

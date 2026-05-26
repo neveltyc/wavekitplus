@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from ..scope import Scope, _prepend_scope_name, match_scopes, match_signals
+from ..scope import (Scope, _prepend_scope_name, match_scopes, match_signals, match_scopes_relative, match_signals_relative)
 from ..signal import Signal
 from ..waveform import Waveform
 from .expr_parser import extract_wave_paths
@@ -350,6 +350,8 @@ class Reader:
             expand_brace_pattern(p) for p in split_by_hierarchy(pattern)
         ]
 
+        if root_scope is not None:
+            return match_scopes_relative(root_scope, expanded_pattern_list)
         matched_scopes: dict[tuple[Any, ...], Scope] = {}
         for scope in self._search_roots(root_scope):
             matched_scopes = combine_dict(
