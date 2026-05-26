@@ -346,6 +346,7 @@ class Waveform:
                 raise ValueError('waveform time arrays are not aligned')
 
     def _check_sign(self, other: WaveformOrScalar):
+        self._check_alignment(other)
         if isinstance(other, Waveform) and self.signed != other.signed:
             raise ValueError('signedness mismatch')
 
@@ -391,7 +392,6 @@ class Waveform:
 
     def __add__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
-        self._check_alignment(other)
         self._check_arithmetic_op_width(other)
 
         def inferred_width() -> int | None:
@@ -643,7 +643,6 @@ class Waveform:
 
     def __lshift__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
-        self._check_alignment(other)
         self._check_logical_op_type(other)
         if isinstance(other, float):
             raise TypeError('Can only perform logical operations on 64-bit integers')
@@ -825,7 +824,6 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         self._check_sign(other)
-        self._check_alignment(other)
         result = self.vectorized_map(
             lambda x: self._eq(x, self._get_value(other)),
             width=1,
@@ -842,7 +840,6 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         self._check_sign(other)
-        self._check_alignment(other)
         result = self.vectorized_map(
             lambda x: self._ne(x, self._get_value(other)),
             width=1,

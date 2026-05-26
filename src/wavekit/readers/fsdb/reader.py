@@ -13,6 +13,7 @@ from ...scope import Scope
 from ...signal import Signal, SignalCompositeType
 from ...waveform import Waveform
 from ..base import Reader
+from ..edge_detect import compute_clock_edge_mask
 from .npi_fsdb_reader import (
     NPI_FSDB_CT_ARRAY,
     NPI_FSDB_CT_RECORD,
@@ -226,15 +227,37 @@ class FsdbReader(Reader):
             xz_value=0,
         )
 
-        # Determine clock edge timestamps for the sampling edge
+# Determine clock edge timestamps for the sampling edge
         sample_value = 1 if sample_on_posedge else 0
-        clock_edge_times = all_clock_changes[all_clock_changes[:, 1] == sample_value, 0]
+        edge_mask = compute_clock_edge_mask(all_clock_changes, sample_on_posedge)
+        clock_edge_times = all_clock_changes[edge_mask, 0]
 
         # Convert begin_cycle/end_cycle to begin_time/end_time
         if begin_cycle is not None:
+            if not (0 <= begin_cycle < len(clock_edge_times)):
+                raise ValueError(
+                    f'begin_cycle={begin_cycle} out of range '
+                    f'(clock has {len(clock_edge_times)} edges)'
+                )
             begin_time = int(clock_edge_times[begin_cycle])
         if end_cycle is not None:
-            end_time = int(clock_edge_times[end_cycle])
+            if not (0 <= end_cycle <= len(clock_edge_times)):
+                raise ValueError(
+                    f'end_cycle={end_cycle} out of range '
+                    f'(clock has {len(clock_edge_times)} edges)'
+                )
+            if end_cycle == len(clock_edge_times):
+                pass
+            else:
+                end_time = int(clock_edge_times[end_cycle])
+        if (
+            begin_cycle is not None
+            and end_cycle is not None
+            and begin_cycle >= end_cycle
+        ):
+            raise ValueError(
+                f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}'
+            )
 
         begin_time_actual = begin_time if begin_time is not None else 0
         end_time_actual = end_time if end_time is not None else 2**64 - 1

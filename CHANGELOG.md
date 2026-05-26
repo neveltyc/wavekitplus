@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.13 - 2026-05-26
+
+### Fixed
+- Cython value_change_to_value_array: add future-value guard (same as Python fallback)
+- Binary op alignment check: moved into _check_sign to cover all 14 ops (was only 4)
+- FST/FSDB readers: cycle bounds validation (begin_cycle, end_cycle) synced with VCD
+- FST/FSDB readers: use true edge detection (compute_clock_edge_mask) instead of level match
+- conftest.py: remove duplicate definitions
+
 ## v0.8.12 - 2026-05-26
 
 ### Fixed
