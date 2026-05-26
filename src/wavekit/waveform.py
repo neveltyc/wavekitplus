@@ -385,6 +385,7 @@ class Waveform:
         reverse=False,
         width_fn=None,
         result_signed=None,
+        value_transformer=None,
     ):
         """Execute a binary operation with unified checks and xz_mask merge.
 
@@ -411,6 +412,9 @@ class Waveform:
 
         if result_signed is None:
             result_signed = False if kind == 'cmp' else self.signed
+
+        if value_transformer is not None:
+            lhs, rhs = value_transformer(lhs, rhs, new_width)
 
         result = Waveform(
             value=new_value,

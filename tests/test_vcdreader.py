@@ -165,7 +165,7 @@ def test_finalize_loaded_waveform_rejects_mismatched_lengths():
         signal=Signal('bad', 'bad', 1, None, False),
     )
 
-    with pytest.raises(AssertionError, match='clock length'):
+    with pytest.raises(ValueError, match='clock length'):
         Reader._finalize_loaded_waveform(waveform, 'bad', signed=False)
 
 

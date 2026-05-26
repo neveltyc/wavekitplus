@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.3 - 2026-05-26
+
+### Changed
+- test_adversarial.py: renamed to pytest format, fully collected by default
+- _assert_waveform_invariants: AssertionError -> ValueError
+- _binary_op: added optional value_transformer hook (backward compatible, v0.10 prep)
+
+### Added
+- test_scalar_pow_waveform_rejected (explicit NotImplementedError check)
+- test_shift_matrix.py parameterized skeleton (skip, v0.10 prep)
+- README: API notes — scalar**wave, unsigned subtraction wraparound, bitwise signedness
+
 ## v0.9.2 - 2026-05-26
 
 ### Added

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.9.2-3366cc?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.9.3-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
   <img alt="Tests" src="https://img.shields.io/badge/tests-passing-22aa55?style=flat-square">
@@ -161,7 +161,7 @@ with VcdReader("axi_tb.vcd") as r:
 
 | 版本 | 亮点 |
 |:-----|:-----|
-| `0.9.2` | root_scope 信号匹配、VCD subrange metadata、严格 bit 选择 |
+| `0.9.3` | root_scope 信号匹配、VCD subrange metadata、严格 bit 选择 |
 | `0.9.1` | root_scope 相对匹配辅助函数和 scoped path 清理 |
 | `0.9.0` | 共享二元运算检查和三个 reader 后端的收尾逻辑 |
 | `0.8.16` | Python 3.9 兼容, __getitem__ 边界检查, root_scope 嵌套路径 |
@@ -186,7 +186,7 @@ PYTHONPATH=src python tests/run_tests.py
 从已经准备好版本号和文档的工作树运行 PowerShell 发布脚本：
 
 ```powershell
-.\release_tag.ps1 -Version v0.9.2 -CommitMessage "release: v0.9.2"
+.\release_tag.ps1 -Version v0.9.3 -CommitMessage "release: v0.9.3"
 ```
 
 脚本会检查版本文档、运行 `tests/run_tests.py`、在可用时运行 pytest、保护 Iverilog

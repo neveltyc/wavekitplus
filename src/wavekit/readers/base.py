@@ -178,11 +178,11 @@ class Reader:
     def _assert_waveform_invariants(waveform: Waveform) -> None:
         n = len(waveform.value)
         if len(waveform.clock) != n:
-            raise AssertionError(f'clock length {len(waveform.clock)} != value length {n}')
+            raise ValueError(f'clock length {len(waveform.clock)} != value length {n}')
         if len(waveform.time) != n:
-            raise AssertionError(f'time length {len(waveform.time)} != value length {n}')
+            raise ValueError(f'time length {len(waveform.time)} != value length {n}')
         if waveform.xz_mask is not None and len(waveform.xz_mask) != n:
-            raise AssertionError(f'xz_mask length {len(waveform.xz_mask)} != value length {n}')
+            raise ValueError(f'xz_mask length {len(waveform.xz_mask)} != value length {n}')
 
     @staticmethod
     def _finalize_loaded_waveform(
@@ -589,3 +589,4 @@ class Reader:
 
         else:
             raise ValueError(f"unknown mode '{mode}', expected 'single' or 'zip'")
+

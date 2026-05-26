@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.9.2-3366cc?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.9.3-3366cc?style=flat-square">
   <img alt="Python" src="https://img.shields.io/badge/python-3.9+-3366cc?style=flat-square&logo=python&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3366cc?style=flat-square">
   <img alt="Tests" src="https://img.shields.io/badge/tests-passing-22aa55?style=flat-square">
@@ -164,11 +164,26 @@ Describe a temporal sequence; the NFA engine finds all matches in one pass.
 | `.timeout(max)` | Mark unfinished as `TIMEOUT` |
 | `.match()` | Run engine → `MatchResult` (`.start`, `.end`, `.duration`, `.captures`, `.filter_valid()`) |
 
+## API notes
+
+**scalar ** Waveform** is not supported. The result width depends on runtime data
+and cannot be expressed as a fixed-width integer. Use wave.map(lambda v: base ** int(v), width=N)
+with an explicit output width, or (1 << wave) when the base is 2.
+
+**Unsigned subtraction** has fixed-width wraparound semantics:  - b wraps at
+2^width when  < b. This matches hardware subtractor behavior. To avoid wraparound,
+use .as_signed() - b.as_signed() or expand width before subtraction.
+
+**Bitwise operations** (& | ^ ~) treat operands as raw bits and do not check
+signedness. The result is always unsigned. Arithmetic (+ - * / // % **) and comparison
+(== !=) still require matching signedness.
+
+
 ## Version history
 
 | Version | Highlight |
 |:--------|:----------|
-| `0.9.2` | root_scope signal matching, VCD subrange metadata, strict bit selection |
+| `0.9.3` | root_scope signal matching, VCD subrange metadata, strict bit selection |
 | `0.9.1` | root_scope relative matching helpers and scoped path cleanup |
 | `0.9.0` | Shared binary-op checks and reader finalization across backends |
 | `0.8.16` | Python 3.9 compat, __getitem__ bounds, root_scope nested paths |
@@ -193,7 +208,7 @@ If dev dependencies are installed, `python -m pytest -q` runs the broader pytest
 Use the PowerShell release helper from a prepared working tree:
 
 ```powershell
-.\release_tag.ps1 -Version v0.9.2 -CommitMessage "release: v0.9.2"
+.\release_tag.ps1 -Version v0.9.3 -CommitMessage "release: v0.9.3"
 ```
 
 The script verifies versioned docs, runs `tests/run_tests.py`, runs pytest when
