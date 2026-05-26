@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Common clock edge detection logic shared across VCD/FST/FSDB readers."""
 
 import numpy as np

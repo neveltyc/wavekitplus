@@ -231,7 +231,7 @@ class Reader:
         ]
 
         roots = self._search_roots(root_scope)
-        if root_scope is not None:
+        if root_scope is not None and len(expanded_pattern_list) == 1:
             # Single-element pattern, relative to root_scope — match signals directly
             matched_signals: dict[tuple[Any, ...], Signal] = {}
             for scope in roots:

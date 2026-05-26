@@ -530,6 +530,7 @@ class Waveform:
 
     def __rfloordiv__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
         new_width = self._infer_arithmetic_op_width(lambda: self._get_width(other))
         new_value = self._floordiv(self._get_value(other), self.value)
 
@@ -565,6 +566,7 @@ class Waveform:
 
     def __rmod__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
         new_width = self._infer_arithmetic_op_width(lambda: self._get_width(other))
 
         new_value = self._mod(self._get_value(other), self.value)
@@ -601,6 +603,7 @@ class Waveform:
 
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
         self._check_sign(other)
+        self._check_arithmetic_op_width(other)
         new_value = self._get_value(other) ** self.value
         result = Waveform(
             value=new_value,
@@ -898,13 +901,18 @@ class Waveform:
                 )
             if index.step is not None:
                 raise Exception('slice with step is not supported')
-
             if index.start < index.stop:
                 raise Exception('only support little-endian slicing')
-
+            if self.width is not None:
+                if index.stop < 0 or index.start < 0:
+                    raise ValueError('Bit indices must be non-negative')
+                if index.start >= self.width:
+                    raise ValueError(f'High bit {index.start} >= width {self.width}')
             start = index.stop
             width = (index.start - index.stop) + 1
         elif isinstance(index, int):
+            if self.width is not None and (index < 0 or index >= self.width):
+                raise ValueError(f'Bit index {index} out of range for width {self.width}')
             start = index
             width = 1
         else:

@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.16 - 2026-05-26
+
+### Fixed
+- edge_detect.py: add from __future__ import annotations for Python 3.9 compat
+- __rfloordiv__/__rmod__/__rpow__: add _check_arithmetic_op_width for width>64 guard
+- __getitem__: bit/slice bounds validation (negative, out-of-range)
+- root_scope: support nested relative paths (e.g. sub.sig via root_scope=dut)
+- FSDB: clock width from npi_clock.width() instead of string guesswork
+
 ## v0.8.15 - 2026-05-26
 
 ### Fixed

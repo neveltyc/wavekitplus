@@ -227,16 +227,10 @@ class FsdbReader(Reader):
             xz_value=0,
         )
 
-        # Determine clock edge timestamps for the sampling edge
-        clock_w = clock.width if isinstance(clock, Signal) else 0
-        if clock_w == 0 and isinstance(clock, str):
-            clock_info = self.get_matched_signals(clock.split('.')[-1])
-            if clock_info:
-                clock_w = next(iter(clock_info.values())).width
         edge_mask, clock_edge_times = select_clock_edges(
             all_clock_changes,
             sample_on_posedge=sample_on_posedge,
-            clock_width=clock_w if clock_w else 1,
+            clock_width=npi_clock.width(),
             clock_name=clock_path,
         )
 
