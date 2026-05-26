@@ -376,12 +376,7 @@ class VcdReader(Reader):
                 slice_width = high - low + 1
                 if slice_width < width:
                     result = result[high:low]
-        if signed:
-            result = result.as_signed()
-            result.name = lookup_path
-            result.signal.full_name = lookup_path
-
-        return result
+        return self._finalize_loaded_waveform(result, lookup_path, signed=signed)
 
     def close(self):
         pass

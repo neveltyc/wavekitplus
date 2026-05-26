@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.0 - 2026-05-26
+
+### Changed
+- **Binary ops refactored** — 28 methods consolidated through _binary_op factory,
+  _check_binary_compat. All cross-cutting checks (alignment, width, xz_mask)
+  now apply uniformly. Eliminates 'forward fixed, reverse missed' regressions.
+- **Reader finalize unified** — _finalize_loaded_waveform() shared by VCD/FST/FSDB.
+  Always loads unsigned first, slices, then converts to signed. Ensures name
+  and signal metadata consistency across all three backends.
+- **__sub__ width** — restores upstream behavior: subtraction does not increase
+  bit width. __add__ width=max+1 behavior retained.
+- Exception type standardized — edge ops use ValueError not bare Exception.
+
+### Fixed
+- unsigned subrange name was empty (now set via shared finalize)
+- empty waveform rising_edge/falling_edge no longer crash
+- empty edge result preserves correct signed metadata
+
 ## v0.8.16 - 2026-05-26
 
 ### Fixed

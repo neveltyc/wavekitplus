@@ -176,6 +176,33 @@ class Reader:
         """Return the list of scopes to start a search from."""
         return [root_scope] if root_scope is not None else self.top_scope_list()
 
+    @staticmethod
+    def _finalize_loaded_waveform(
+        waveform: Waveform,
+        signal_path: str,
+        *,
+        signed: bool,
+    ) -> Waveform:
+        """Apply signed reinterpretation and metadata fixup after raw load.
+
+        All readers should call this as the last step of load_waveform().
+        The waveform passed in must already be subranged and unsigned.
+        """
+        if signed:
+            waveform = waveform.as_signed()
+
+        # Set metadata AFTER signed conversion (as_signed checks self.signed)
+        waveform.name = signal_path
+        waveform.signal = Signal(
+            name=signal_path,
+            full_name=signal_path,
+            width=waveform.width,
+            range=None,
+            signed=signed,
+        )
+
+        return waveform
+
     def get_matched_signals(
         self,
         pattern: str,

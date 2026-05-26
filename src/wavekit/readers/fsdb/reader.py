@@ -287,7 +287,7 @@ class FsdbReader(Reader):
             signal_value_change,
             windowed_clock_changes,
             width=npi_signal.width(),
-            signed=signed,
+            signed=False,
             sample_on_posedge=sample_on_posedge,
             signal=signal_path,
             clock_offset=clock_offset,
@@ -295,10 +295,11 @@ class FsdbReader(Reader):
 
         # time_slice trims the garbage samples produced by clock edges before
         # begin_time (where the windowed signal data hasn't started yet)
-        return full_wave.time_slice(
+        result = full_wave.time_slice(
             begin_time_actual if begin_time is not None else None,
             end_time if end_time is not None else None,
         )
+        return self._finalize_loaded_waveform(result, signal_path, signed=signed)
 
     def top_scope_list(self) -> Sequence[Scope]:
         if not hasattr(self, '_top_scope_list'):

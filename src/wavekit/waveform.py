@@ -347,7 +347,6 @@ class Waveform:
                 raise ValueError('waveform time arrays are not aligned')
 
     def _check_sign(self, other: WaveformOrScalar):
-        self._check_alignment(other)
         if isinstance(other, Waveform) and self.signed != other.signed:
             raise ValueError('signedness mismatch')
 
@@ -357,6 +356,70 @@ class Waveform:
 
         if isinstance(other, Waveform) and other.width is not None and other.width > 64:
             raise ValueError('width too large')
+
+    # ── Unified binary operation infrastructure ──
+
+    def _check_binary_compat(self, other, *, kind):
+        """Unified pre-check for all binary operations.
+
+        kind: 'arith', 'bitwise', 'shift', or 'cmp'.
+        """
+        if isinstance(other, Waveform):
+            self._check_alignment(other)
+
+        if kind in ('arith', 'cmp'):
+            self._check_sign(other)
+
+        if kind == 'arith':
+            self._check_arithmetic_op_width(other)
+
+        if kind in ('bitwise', 'shift'):
+            self._check_logical_op_type(other)
+
+    def _binary_op(
+        self,
+        other,
+        *,
+        op,
+        kind,
+        reverse=False,
+        width_fn=None,
+        result_signed=None,
+    ):
+        """Execute a binary operation with unified checks and xz_mask merge.
+
+        Parameters
+        ----------
+        other : Waveform or scalar
+        op : callable(lhs, rhs) -> ndarray
+        kind : str — 'arith', 'bitwise', 'shift', or 'cmp'
+        reverse : bool — if True, lhs=other, rhs=self (for __r*__ ops)
+        width_fn : callable(self, other) -> int|None, or int|None constant
+        result_signed : bool|None — None means inherit self.signed (or False for cmp)
+        """
+        self._check_binary_compat(other, kind=kind)
+
+        lhs = self._get_value(other) if reverse else self.value
+        rhs = self.value if reverse else self._get_value(other)
+
+        new_value = op(lhs, rhs)
+
+        if callable(width_fn):
+            new_width = width_fn(self, other)
+        else:
+            new_width = width_fn
+
+        if result_signed is None:
+            result_signed = False if kind == 'cmp' else self.signed
+
+        result = Waveform(
+            value=new_value,
+            clock=self.clock,
+            time=self.time,
+            signal=Signal('', '', new_width, None, result_signed),
+            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        )
+        return Waveform._merge_xz_mask(result, other)
 
     def _infer_arithmetic_op_width(
         self,
@@ -392,228 +455,103 @@ class Waveform:
             return other
 
     def __add__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-
-        def inferred_width() -> int | None:
-            max_width = self._optional_max_width(other)
-            if max_width is None:
-                return None
-            return max_width + 1
-
-        new_width = self._infer_arithmetic_op_width(inferred_width)
-
-        result = self.vectorized_map(
-            lambda x: self._add(x, self._get_value(other)),
-            width=new_width,
-            signed=self.signed,
+        return self._binary_op(
+            other, op=self._add, kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(
+                lambda: (max(s.width, s._get_width(o)) + 1) if s.width and s._get_width(o) else None),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __radd__(self, other: WaveformOrScalar) -> Waveform:
         return self.__add__(other)
-
     @staticmethod
     # @jit
     def _sub(a, b):
         return a - b
 
     def __sub__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-
-        def inferred_width() -> int | None:
-            return self._optional_max_width(other)
-
-        new_width = self._infer_arithmetic_op_width(inferred_width)
-
-        result = self.vectorized_map(
-            lambda x: self._sub(x, self._get_value(other)),
-            width=new_width,
-            signed=self.signed,
+        return self._binary_op(
+            other, op=self._sub, kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(
+                lambda: s._optional_max_width(o)),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rsub__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-
-        def inferred_width() -> int | None:
-            return self._optional_max_width(other)
-
-        new_width = self._infer_arithmetic_op_width(inferred_width)
-
-        result = self.vectorized_map(
-            lambda x: self._sub(self._get_value(other), x),
-            width=new_width,
-            signed=self.signed,
+        return self._binary_op(
+            other, op=self._sub, kind='arith', reverse=True,
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(
+                lambda: s._optional_max_width(o)),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     @staticmethod
     # @jit
     def _mul(a, b):
         return a * b
 
     def __mul__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-
-        def inferred_width() -> int | None:
-            other_width = self._get_width(other)
-            if self.width is None or other_width is None:
-                return None
-            return self.width + other_width
-
-        new_width = self._infer_arithmetic_op_width(inferred_width)
-
-        result = self.vectorized_map(
-            lambda x: self._mul(x, self._get_value(other)),
-            width=new_width,
-            signed=self.signed,
+        return self._binary_op(
+            other, op=self._mul, kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(
+                lambda: (s.width + s._get_width(o)) if s.width and s._get_width(o) else None),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rmul__(self, other: WaveformOrScalar) -> Waveform:
         return self.__mul__(other)
-
     @staticmethod
     # @jit
     def _truediv(a, b):
         return a / b
 
     def __truediv__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        new_value = self._truediv(self.value, self._get_value(other))
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', None, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=lambda a, b: a / b, kind='arith',
+            width_fn=None,
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rtruediv__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        new_value = self._truediv(self._get_value(other), self.value)
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', None, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=lambda a, b: a / b, kind='arith', reverse=True,
+            width_fn=None,
         )
-        return Waveform._merge_xz_mask(result, other)
-
     @staticmethod
     # @jit
     def _floordiv(a, b):
         return a // b
 
     def __floordiv__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-        new_width = self._infer_arithmetic_op_width(lambda: self.width)
-        new_value = self._floordiv(self.value, self._get_value(other))
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._floordiv, kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s.width),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rfloordiv__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-        new_width = self._infer_arithmetic_op_width(lambda: self._get_width(other))
-        new_value = self._floordiv(self._get_value(other), self.value)
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._floordiv, kind='arith', reverse=True,
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s._get_width(o)),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     @staticmethod
     # @jit
     def _mod(a, b):
         return a % b
 
     def __mod__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-        new_width = self._infer_arithmetic_op_width(lambda: self.width)
-
-        new_value = self._mod(self.value, self._get_value(other))
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._mod, kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s.width),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rmod__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-        new_width = self._infer_arithmetic_op_width(lambda: self._get_width(other))
-
-        new_value = self._mod(self._get_value(other), self.value)
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._mod, kind='arith', reverse=True,
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s._get_width(o)),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     @staticmethod
     # @jit
     def _pow(a, b):
         return a**b
 
     def __pow__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-        new_width = self._infer_arithmetic_op_width(lambda: 64)
-
-        new_value = self._pow(self.value, self._get_value(other))
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._pow, kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: 64),
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_arithmetic_op_width(other)
-        new_value = self._get_value(other) ** self.value
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', None, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._pow, kind='arith', reverse=True,
+            width_fn=None,
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
             raise TypeError('Can only perform logical operations on 64-bit integers')
@@ -652,10 +590,7 @@ class Waveform:
         return a << b
 
     def __lshift__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_logical_op_type(other)
-        if isinstance(other, float):
-            raise TypeError('Can only perform logical operations on 64-bit integers')
+        self._check_binary_compat(other, kind='shift')
         base_width = self.width or 0
         if isinstance(other, Waveform):
             if other.width is None:
@@ -707,10 +642,7 @@ class Waveform:
         return a >> b
 
     def __rshift__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        self._check_logical_op_type(other)
-        if isinstance(other, float):
-            raise TypeError('Can only perform logical operations on 64-bit integers')
+        self._check_binary_compat(other, kind='shift')
 
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
@@ -732,10 +664,7 @@ class Waveform:
         return Waveform._merge_xz_mask(result, other)
 
     def __rrshift__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
-        self._check_sign(other)
-        self._check_logical_op_type(other)
-        if isinstance(other, float):
-            raise TypeError('Can only perform logical operations on 64-bit integers')
+        self._check_binary_compat(other, kind='shift')
 
         if isinstance(other, Waveform):
             new_width = self._infer_logical_op_width(other)
@@ -761,52 +690,39 @@ class Waveform:
         return a & b
 
     def __and__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_sign(other)
-        new_width = self._infer_logical_op_width(other)
-        result = self.vectorized_map(
-            lambda x: self._and(x, self._get_value(other)),
-            width=new_width,
-            signed=False,
+        return self._binary_op(
+            other, op=self._and, kind='bitwise',
+            width_fn=lambda s, o: s._infer_logical_op_width(o),
+            result_signed=False,
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rand__(self, other: WaveformOrScalar) -> Waveform:
         return self.__and__(other)
-
     @staticmethod
     # @jit
     def _or(a, b):
         return a | b
 
     def __or__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
-        self._check_sign(other)
-        new_width = self._infer_logical_op_width(other)
-        result = self.vectorized_map(
-            lambda x: self._or(x, self._get_value(other)), width=new_width, signed=False
+        return self._binary_op(
+            other, op=self._or, kind='bitwise',
+            width_fn=lambda s, o: s._infer_logical_op_width(o, inferred_width=width),
+            result_signed=False,
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __ror__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self.__or__(other, width)
-
     @staticmethod
     # @jit
     def _xor(a, b):
         return a ^ b
 
     def __xor__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
-        self._check_sign(other)
-        new_width = self._infer_logical_op_width(other)
-        result = self.vectorized_map(
-            lambda x: self._xor(x, self._get_value(other)),
-            width=new_width,
-            signed=False,
+        return self._binary_op(
+            other, op=self._xor, kind='bitwise',
+            width_fn=lambda s, o: s._infer_logical_op_width(o, inferred_width=width),
+            result_signed=False,
         )
-        return Waveform._merge_xz_mask(result, other)
-
     def __rxor__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self.__xor__(other, width)
-
     @staticmethod
     # @jit
     def _invert(a, width: int):
@@ -833,13 +749,10 @@ class Waveform:
     def __eq__(self, other: object) -> Any:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
-        self._check_sign(other)
-        result = self.vectorized_map(
-            lambda x: self._eq(x, self._get_value(other)),
-            width=1,
-            signed=False,
+        return self._binary_op(
+            other, op=self._eq, kind='cmp',
+            width_fn=1, result_signed=False,
         )
-        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -849,13 +762,10 @@ class Waveform:
     def __ne__(self, other: object) -> Any:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
-        self._check_sign(other)
-        result = self.vectorized_map(
-            lambda x: self._ne(x, self._get_value(other)),
-            width=1,
-            signed=False,
+        return self._binary_op(
+            other, op=self._ne, kind='cmp',
+            width_fn=1, result_signed=False,
         )
-        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -1110,7 +1020,14 @@ class Waveform:
         rising_edge : detect 0→1 transitions.
         """
         if self.width != 1:
-            raise Exception('raising only support 1-bit waveform')
+            raise ValueError('rising_edge/falling_edge only supports 1-bit waveforms')
+        if len(self.value) == 0:
+            return Waveform(
+                value=np.array([], dtype=np.uint64),
+                clock=self.clock.copy(), time=self.time.copy(),
+                signal=Signal('', '', 1, None, False),
+                xz_mask=np.array([], dtype=bool) if self.xz_mask is not None else None,
+            )
         one = self.value[:-1] == 1
         zero = self.value[1:] == 0
         new_value = np.concatenate(([False], one & zero))
@@ -1143,7 +1060,14 @@ class Waveform:
         falling_edge : detect 1→0 transitions.
         """
         if self.width != 1:
-            raise Exception('raising only support 1-bit waveform')
+            raise ValueError('rising_edge/falling_edge only supports 1-bit waveforms')
+        if len(self.value) == 0:
+            return Waveform(
+                value=np.array([], dtype=np.uint64),
+                clock=self.clock.copy(), time=self.time.copy(),
+                signal=Signal('', '', 1, None, False),
+                xz_mask=np.array([], dtype=bool) if self.xz_mask is not None else None,
+            )
         zero = self.value[:-1] == 0
         one = self.value[1:] == 1
         new_value = np.concatenate(([False], one & zero))

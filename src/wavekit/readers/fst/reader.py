@@ -183,6 +183,9 @@ class FstReader(Reader):
             )
 
         fst_signal, requested_range = self._resolve_signal(signal)
+        signal_path = signal.full_name if isinstance(signal, Signal) else signal
+        # Use resolved name (with range suffix) for metadata if user didn't specify range
+        display_path = signal_path if requested_range else fst_signal.full_name
         fst_clock, _ = self._resolve_signal(clock)
         all_clock_changes = self._load_value_change(fst_clock, xz_value=0)
         edge_mask, clock_edge_times = select_clock_edges(
@@ -272,9 +275,7 @@ class FstReader(Reader):
             if high - low + 1 < fst_signal.width:
                 result = result[high:low]
 
-        if signed:
-            result = result.as_signed()
-        return result
+        return self._finalize_loaded_waveform(result, display_path, signed=signed)
 
     def top_scope_list(self) -> Sequence[Scope]:
         """Return top-level scopes from the FST hierarchy."""
