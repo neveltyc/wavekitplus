@@ -250,7 +250,10 @@ class Waveform:
         if isinstance(mask, Waveform):
             if not (mask.width == 1 or mask.value.dtype == np.bool_):
                 raise TypeError('mask requires waveform with width 1 or boolean dtype')
-            mask = mask.value.astype(np.bool_)
+            bool_mask = mask.value.astype(np.bool_)
+            if mask.xz_mask is not None:
+                bool_mask = bool_mask & ~mask.xz_mask
+            mask = bool_mask
         if not isinstance(mask, np.ndarray) or mask.dtype != np.bool_:
             raise TypeError('mask requires boolean numpy array')
         result = Waveform(
@@ -279,6 +282,8 @@ class Waveform:
                 [int(v) - offset if (int(v) & sign_bit) else int(v) for v in value],
                 dtype=np.object_,
             )
+        if width == 64:
+            return value.astype(np.uint64).view(np.int64)
         offset = 1 << width
         return np.where(
             value < (offset // 2),

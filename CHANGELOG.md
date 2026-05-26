@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.11 - 2026-05-26
+
+### Fixed
+- as_signed() for width==64 uses int64 view (was subtracting 2**64 from uint64 causing OverflowError)
+- Waveform.mask() conservatively excludes xz_mask cycles from boolean mask waveform
+- FST/FSDB reader clock edge: documented as known limitation (level matching, no x/z exclusion)
+- conftest.py with clear comment explaining adversarial test exclusion from pytest
+
 ## v0.8.10 - 2026-05-26
 
 ### Fixed

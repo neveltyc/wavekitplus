@@ -180,6 +180,9 @@ class FstReader(Reader):
         fst_clock, _ = self._resolve_signal(clock)
 
         all_clock_changes = self._load_value_change(fst_clock, xz_value=0)
+        # Known limitation: uses level matching (not true edge detection).
+        # Redundant same-value clock assignments may create phantom edges.
+        # VcdReader has full edge detection; porting to FST/FSDB is future work.
         sample_value = 1 if sample_on_posedge else 0
         clock_edge_times = all_clock_changes[all_clock_changes[:, 1] == sample_value, 0]
 
