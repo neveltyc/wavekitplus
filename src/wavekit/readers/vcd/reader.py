@@ -316,7 +316,6 @@ class VcdReader(Reader):
         )
 
         # Attach x/z masking info if requested
-        # Attach x/z masking info if requested
         if xz_mask:
             if range_suffix:
                 m = re.fullmatch(r'\[(\d+)(?::(\d+))?\]', range_suffix)

@@ -571,7 +571,7 @@ class Waveform:
             signal=Signal('', '', None, None, self.signed),
             xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
         )
-        return result
+        return Waveform._merge_xz_mask(result, other)
 
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
