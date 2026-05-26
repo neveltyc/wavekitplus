@@ -1,0 +1,21 @@
+.pytest_cache/
+__pycache__/
+ieeestand1364-2005/
+tmp*/
+_audit_all_versions/
+_fixture_*.vcd
+_rebuild_history.py
+_generate_version_notes.py
+publish_releases.ps1
+
+# archive: only source files, not zip packages
+archive/*.zip
+archive/VERSION_INDEX.md
+
+# coverage artifacts
+htmlcov/
+.coverage
+coverage.xml
+coverage_report.txt
+latest_run.log
+
