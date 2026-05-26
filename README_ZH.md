@@ -164,7 +164,9 @@ PYTHONPATH=src python tests/run_tests.py
 
 ## 许可证
 
-MIT — 详见 [LICENSE](LICENSE)。内嵌的 VCD 解析器 (`src/wavekit/readers/vcd/vcd_parser.py`)
+MIT — 详见 [LICENSE](LICENSE)。
+
+内嵌的 VCD 解析器 (`src/wavekit/readers/vcd/vcd_parser.py`)
 改编自 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9，同为 MIT 许可。
 
 [English](README.md)

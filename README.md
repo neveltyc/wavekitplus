@@ -173,7 +173,9 @@ and edge cases. No pytest required.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The embedded VCD parser (`src/wavekit/readers/vcd/vcd_parser.py`)
+MIT — see [LICENSE](LICENSE).
+
+The embedded VCD parser (`src/wavekit/readers/vcd/vcd_parser.py`)
 is adapted from [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9, also MIT.
 
 [中文说明](README_ZH.md)
