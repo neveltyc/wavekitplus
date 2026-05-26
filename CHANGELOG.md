@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.8.7 - 2026-05-26
+
+### Fixed
+- clock_value_change now filtered to edge events only (was level match causing fake cycles)
+- rising_edge() / falling_edge() xz_mask uses prev|curr (was roll(-1) giving wrong direction)
+- __rlshift__ / __rpow__ now propagate xz_mask and merge dual-operand masks
+- bit-sliced signals (e.g. data[3:0]) xz_mask checks only selected bit range
+- end_cycle == len(clock_edges) no longer IndexError
+- find_scope_by_module() depth=0 stops at self (was infinite recursion)
+- clock x/z transitions excluded from edge detection (no false edges)
+- merge() validates inputs (empty, length, clock) and propagates xz_mask (was assert)
+- expr_parser recognizes bare signal names when root_scope is set
+- pylibfst marked optional=true in pyproject.toml extras
+
+## v0.8.6 - 2026-05-26
+
+### Fixed
+- regex signal matching: try sig_bare first, fall back to sig.name (fixes @data and @J_([a-z]+\[3:0\]))
+- module_name_matching test updated for implemented find_scope_by_module()
+
 ## v0.8.5 - 2026-05-26
 
 ### Fixed
