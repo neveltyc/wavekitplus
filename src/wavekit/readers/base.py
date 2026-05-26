@@ -314,6 +314,7 @@ class Reader:
         begin_cycle: int | None = None,
         end_cycle: int | None = None,
         root_scope: Scope | None = None,
+        xz_mask: bool = False,
     ) -> dict[tuple[Any, ...], Waveform]:
         """Batch-load all signals matching *pattern*, each paired with its clock.
 
@@ -376,6 +377,7 @@ class Reader:
             end_time=end_time,
             begin_cycle=begin_cycle,
             end_cycle=end_cycle,
+            xz_mask=xz_mask,
         )
 
         if len(matched_clocks) == 1:
@@ -418,6 +420,7 @@ class Reader:
         end_cycle: int | None = None,
         mode: Literal['single', 'zip'] = 'single',
         root_scope: Scope | None = None,
+        xz_mask: bool = False,
     ) -> Waveform | dict[tuple[Any, ...], Waveform]:
         """Evaluate a waveform expression string.
 
@@ -454,6 +457,7 @@ class Reader:
             end_time=end_time,
             begin_cycle=begin_cycle,
             end_cycle=end_cycle,
+            xz_mask=xz_mask,
         )
 
         # Resolve each path to its matched signal(s)

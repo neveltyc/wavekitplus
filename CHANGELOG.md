@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## v0.8.3 - 2026-05-26
+
+### Fixed
+- Bug 6: load_matched_waveforms and eval now accept and forward xz_mask parameter
+- Cosmetic: fix split_bits closing bracket indentation regression from v0.8.0
+
 ## v0.8.2 - 2026-05-26
 
 ### Fixed

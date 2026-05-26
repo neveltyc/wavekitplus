@@ -488,6 +488,24 @@ def _test_xz_mask_eq_ne_merge():
     assert np.all(ne.xz_mask), '__ne__ should OR both masks'
 t('xz_mask __eq__/__ne__ merge (Bug 5)', _test_xz_mask_eq_ne_merge)
 
+
+def _test_xz_mask_load_matched():
+    """Bug 6: load_matched_waveforms accepts and forwards xz_mask."""
+    r = VcdReader(str(JTAG))
+    waves = r.load_matched_waveforms('tb.u0.J_state[3:0]', 'tb.tck', xz_mask=True)
+    w = waves[()]
+    assert w.xz_mask is not None
+    assert len(w.xz_mask) == len(w.value)
+t('xz_mask through load_matched_waveforms (Bug 6)', _test_xz_mask_load_matched)
+
+def _test_xz_mask_eval():
+    """Bug 6: eval accepts and forwards xz_mask."""
+    r = VcdReader(str(JTAG))
+    result = r.eval('tb.u0.J_state[3:0]', clock='tb.tck', xz_mask=True)
+    assert result.xz_mask is not None
+    assert len(result.xz_mask) == len(result.value)
+t('xz_mask through eval (Bug 6)', _test_xz_mask_eval)
+
 print()
 print('=' * 60)
 total = len(TESTS_PASSED) + len(TESTS_FAILED)
