@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "wavekit"
-version = "0.6.1"
-description = "a fundamental package for digital circuit waveform analysis"
-authors = ["cxzzzz <cxz19961010@outlook.com>"]
+version = "0.0.1"
+description = "wavekit-plus: Fork of wavekit with VCD_ANALYZER VCDParser replacing vcdvcd"
+authors = ["cxzzzz <cxz19961010@outlook.com>", "neveltyc <neveltyc@gmail.com>"]
 readme = "README.md"
-repository = "https://github.com/cxzzzz/wavekit"
+repository = "https://github.com/neveltyc/wavekitplus"
 build = "build.py"
 include = [
     { path = "src/wavekit/**/*.so", format = "wheel" },
@@ -13,7 +13,6 @@ include = [
 [tool.poetry.dependencies]
 python = "^3.9"
 numpy = "^2.0.0"
-vcdvcd = "^2.3.5"
 pylibfst = "^0.2.1"
 pytest = "^8.2.2"
 

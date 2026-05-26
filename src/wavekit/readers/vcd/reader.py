@@ -5,41 +5,42 @@ from collections.abc import Sequence
 from functools import cached_property
 
 import numpy as np
-from vcdvcd import VCDVCD
-from vcdvcd import Scope as VcdVcdScope
 
 from ...scope import Scope
 from ...signal import Signal
 from ...waveform import Waveform
 from ..base import Reader
 from ..pattern_parser import split_by_range_expr
+from .vcd_parser import VCDParser
 
 
 class VcdScope(Scope):
+    """Scope implementation that builds the scope tree from VCDParser signals."""
+
     def __init__(
         self,
-        vcdvcd_scope: VcdVcdScope,
-        parent_scope: Scope | None,
-        reader: VcdReader,
+        name: str,
+        full_path: str,
+        parser: VCDParser,
+        reader: 'VcdReader',
     ):
-        super().__init__(name=vcdvcd_scope.name.split('.')[-1])
-        self.vcdvcd_scope = vcdvcd_scope
-        self.parent_scope = parent_scope
-        self.reader = reader
+        super().__init__(name=name)
+        self._full_path = full_path
+        self._parser = parser
+        self._reader = reader
 
     @cached_property
     def signal_list(self) -> Sequence[Signal]:
-        full_scope_name = self.full_name()
-        signals = []
-        for k, v in self.vcdvcd_scope.subElements.items():
-            if isinstance(v, str):
-                signal_path = f'{full_scope_name}.{k}'
-                width = int(self.reader.file_handle[signal_path].size)
+        signals: list[Signal] = []
+        for sid, info in self._parser.signals.items():
+            if info.get('scope') == self._full_path:
+                # From the full path, extract the local name (last component)
+                local_name = info['path'].split('.')[-1]
                 signals.append(
                     Signal(
-                        name=k,
-                        full_name=signal_path,
-                        width=width,
+                        name=local_name,
+                        full_name=info['path'],
+                        width=info['width'],
                         range=None,
                         signed=False,
                     )
@@ -48,10 +49,23 @@ class VcdScope(Scope):
 
     @cached_property
     def child_scope_list(self) -> Sequence[Scope]:
+        """Find all direct child scopes under this scope's full_path."""
+        prefix = self._full_path + '.' if self._full_path else ''
+        children: set[str] = set()
+        for sid, info in self._parser.signals.items():
+            scope = info.get('scope', '')
+            if scope and scope.startswith(prefix):
+                remainder = scope[len(prefix):]
+                child_name = remainder.split('.')[0]
+                children.add(child_name)
         return [
-            VcdScope(v, self, self.reader)
-            for _, v in self.vcdvcd_scope.subElements.items()
-            if isinstance(v, VcdVcdScope)
+            VcdScope(
+                name=c,
+                full_path=f'{self._full_path}.{c}' if self._full_path else c,
+                parser=self._parser,
+                reader=self._reader,
+            )
+            for c in sorted(children)
         ]
 
 
@@ -59,9 +73,20 @@ class VcdReader(Reader):
     def __init__(self, file: str):
         super().__init__()
         self.file = file
-        self.file_handle = VCDVCD(file, store_scopes=True)
-        self._top_scope_list = [
-            VcdScope(v, None, self) for k, v in self.file_handle.scopes.items() if '.' not in k
+        self._parser = VCDParser(file)
+
+        # Cache time range to avoid re-scanning the file
+        self._time_range = self._parser.scan_time_range()
+
+        # Build top-level scopes from signal data
+        top_scopes: set[str] = set()
+        for sid, info in self._parser.signals.items():
+            scope = info.get('scope', '')
+            if scope:
+                top_scopes.add(scope.split('.')[0])
+        self._top_scope_list: list[VcdScope] = [
+            VcdScope(name=s, full_path=s, parser=self._parser, reader=self)
+            for s in sorted(top_scopes)
         ]
 
     def top_scope_list(self) -> Sequence[Scope]:
@@ -69,11 +94,34 @@ class VcdReader(Reader):
 
     @property
     def begin_time(self) -> int:
-        return self.file_handle.begintime
+        t_min, _ = self._time_range
+        return t_min if t_min is not None else 0
 
     @property
     def end_time(self) -> int:
-        return self.file_handle.endtime
+        _, t_max = self._time_range
+        return t_max if t_max is not None else 0
+
+    def _resolve_signal_path(self, path: str) -> str:
+        """Resolve a signal path to a VCDParser sig_id."""
+        # Exact match
+        for sid, info in self._parser.signals.items():
+            if path in info['aliases']:
+                return sid
+
+        # Fuzzy match for paths with range suffix
+        pattern = re.compile(rf'^{re.escape(path)}\[\d+(?::\d+)?\]$')
+        matches: list[str] = []
+        for sid, info in self._parser.signals.items():
+            for alias in info['aliases']:
+                if pattern.fullmatch(alias):
+                    matches.append(sid)
+                    break
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ValueError(f'path {path!r} matches multiple signals')
+        raise ValueError(f'signal {path!r} not found')
 
     def load_waveform(
         self,
@@ -105,25 +153,34 @@ class VcdReader(Reader):
                 'Use FSDB or load the full signal and slice manually.'
             )
 
-        # Resolve the actual VCD signal name (may include a range suffix in the file)
-        lookup_path = bare_signal_path
-        if lookup_path not in self.file_handle.references_to_ids:
-            pattern = re.compile(rf'^{re.escape(lookup_path)}\[\d+(?::\d+)?\]$')
-            matches = [
-                ref for ref in self.file_handle.references_to_ids.keys() if pattern.fullmatch(ref)
-            ]
-            if len(matches) == 1:
-                lookup_path = matches[0]
-            elif len(matches) > 1:
-                raise ValueError(f'pattern {lookup_path} matches more than one signal')
+        # Resolve signal and clock to parser IDs
+        signal_sid = self._resolve_signal_path(bare_signal_path)
+        clock_sid = self._resolve_signal_path(clock_path)
+        signal_info = self._parser.signals[signal_sid]
+        width = signal_info['width']
 
-        signal_handle = self.file_handle[lookup_path]
-        width = int(signal_handle.size)
+        # Determine the lookup path (alias that matched) for range_suffix detection
+        lookup_path = bare_signal_path
+        for alias in signal_info['aliases']:
+            if alias.startswith(bare_signal_path):
+                lookup_path = alias
+                break
         _, file_range_suffix = split_by_range_expr(lookup_path)
 
-        # Always load the full clock to compute absolute cycle numbers and clock_offset
+        # Collect value changes for both clock and signal from iter_events
+        signal_tv: list[tuple[int, str]] = []
+        clock_tv: list[tuple[int, str]] = []
+        needed_sids = {signal_sid, clock_sid}
+
+        for t, sid, val in self._parser.iter_events(sids=needed_sids):
+            if sid == clock_sid:
+                clock_tv.append((t, val))
+            elif sid == signal_sid:
+                signal_tv.append((t, val))
+
+        # Convert clock changes to numpy array (always uint64 for clocks)
         all_clock_changes = np.array(
-            [(v[0], int(re.sub(r'[xXzZ]', '0', v[1]), 2)) for v in self.file_handle[clock_path].tv],
+            [(v[0], int(re.sub(r'[xXzZ]', '0', v[1]), 2)) for v in clock_tv],
             dtype=np.uint64,
         )
         if len(all_clock_changes) == 0:
@@ -143,19 +200,21 @@ class VcdReader(Reader):
         begin_time_actual = begin_time if begin_time is not None else 0
         clock_offset = int(np.searchsorted(clock_edge_times, begin_time_actual, side='left'))
 
-        # Trim clock to window [begin_time_actual, end_time] to reduce memory usage in value_change
+        # Trim clock to window [begin_time_actual, end_time] to reduce memory usage
         end_time_actual = end_time if end_time is not None else np.iinfo(np.uint64).max
         clock_mask = all_clock_changes[:, 0] >= begin_time_actual
         if end_time is not None:
             clock_mask &= all_clock_changes[:, 0] <= end_time_actual
         clock_value_change = all_clock_changes[clock_mask]
 
+        # Convert signal changes to numpy array
         signal_value_change = np.array(
-            [(v[0], int(re.sub(r'[xXzZ]', str(xz_value), v[1]), 2)) for v in signal_handle.tv],
+            [(v[0], int(re.sub(r'[xXzZ]', str(xz_value), v[1]), 2)) for v in signal_tv],
             dtype=np.object_ if width > 64 else np.uint64,
         )
         if len(signal_value_change) == 0:
             raise ValueError(f"signal '{lookup_path}' has no value changes")
+
         full_wave = self.value_change_to_waveform(
             signal_value_change,
             clock_value_change,

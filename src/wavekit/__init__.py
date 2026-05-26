@@ -18,7 +18,6 @@ from .pattern import MatchResult as MatchResult
 from .pattern import MatchStatus as MatchStatus
 from .pattern import Pattern as Pattern
 from .pattern import PatternError as PatternError
-from .readers.fst.reader import FstReader as FstReader
 from .readers.vcd.reader import VcdReader as VcdReader
 from .scope import Scope as Scope
 from .signal import Signal as Signal
@@ -40,6 +39,18 @@ __all__ = [
     'Channel',
     'has_fsdb_support',
 ]
+
+try:
+    from .readers.fst.reader import FstReader as FstReader
+except Exception as _fst_import_error:
+    class FstReader:  # type: ignore[no-redef]
+        """Placeholder when pylibfst is unavailable."""
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError(
+                'FstReader requires pylibfst.\n\n'
+                'Install it with: pip install pylibfst\n\n'
+                f'Import error: {_fst_import_error}'
+            )
 
 try:
     from .readers.fsdb.npi_fsdb_reader import fsdb_runtime_available as _fsdb_runtime_available
