@@ -266,10 +266,11 @@ class FsdbReader(Reader):
         clock_offset = int(np.searchsorted(clock_edge_times, begin_time_actual, side='left'))
 
         # Trim clock to window [begin_time_actual, end_time_actual] to reduce memory in value_change
-        clock_mask = all_clock_changes[:, 0] >= begin_time_actual
+        combined_mask = edge_mask.copy()
+        combined_mask &= all_clock_changes[:, 0] >= begin_time_actual
         if end_time is not None:
-            clock_mask &= all_clock_changes[:, 0] <= end_time_actual
-        windowed_clock_changes = all_clock_changes[clock_mask]
+            combined_mask &= all_clock_changes[:, 0] <= end_time_actual
+        windowed_clock_changes = all_clock_changes[combined_mask]
 
         # Load signal within the requested window only (FSDB NPI provides the
         # correct initial value at begin_time even if the last change was earlier)

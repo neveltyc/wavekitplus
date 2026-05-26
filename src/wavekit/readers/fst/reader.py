@@ -213,16 +213,16 @@ class FstReader(Reader):
             raise ValueError(
                 f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}'
             )
-            end_time = int(clock_edge_times[end_cycle])
 
         begin_time_actual = begin_time if begin_time is not None else 0
         end_time_actual = end_time if end_time is not None else np.iinfo(np.uint64).max
         clock_offset = int(np.searchsorted(clock_edge_times, begin_time_actual, side='left'))
 
-        clock_mask = all_clock_changes[:, 0] >= begin_time_actual
+        combined_mask = edge_mask.copy()
+        combined_mask &= all_clock_changes[:, 0] >= begin_time_actual
         if end_time is not None:
-            clock_mask &= all_clock_changes[:, 0] <= end_time_actual
-        windowed_clock_changes = all_clock_changes[clock_mask]
+            combined_mask &= all_clock_changes[:, 0] <= end_time_actual
+        windowed_clock_changes = all_clock_changes[combined_mask]
 
         # Load from the beginning for MVP correctness: pylibfst time-limit
         # iteration semantics do not guarantee an initial value at begin_time.
