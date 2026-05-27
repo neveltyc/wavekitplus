@@ -1,72 +1,93 @@
+import json
 import os
+import shlex
+import shutil
 import subprocess
-from contextlib import contextmanager
+import sys
+from pathlib import Path
 
 import pytest
 
-import shutil
-
 
 pytestmark = pytest.mark.skipif(
-    shutil.which('make') is None or shutil.which('iverilog') is None or shutil.which('vvp') is None,
-    reason='make, iverilog, or vvp not installed',
+    shutil.which('iverilog') is None or shutil.which('vvp') is None,
+    reason='iverilog or vvp not installed',
 )
-# Helper context manager to change working directory
-@contextmanager
-def change_dir(destination):
-    try:
-        cwd = os.getcwd()
-        os.chdir(destination)
-        yield
-    finally:
-        os.chdir(cwd)
-
-
-@pytest.fixture
-def example_dir():
-    # Assuming tests are run from project root
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '../example'))
 
 
 @pytest.fixture
 def project_root():
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    return Path(__file__).resolve().parents[1]
 
 
-def run_make_all(cwd, project_root):
-    # Set PYTHONPATH to include the project root's src directory
+def _make_env(project_root):
     env = os.environ.copy()
-    src_path = os.path.join(project_root, 'src')
-    env['PYTHONPATH'] = f"{src_path}:{env.get('PYTHONPATH', '')}"
+    src = str(project_root / 'src')
+    old = env.get('PYTHONPATH', '')
+    env['PYTHONPATH'] = src + os.pathsep + old if old else src
+    return env
 
-    # Run 'make all'
-    result = subprocess.run(['make', 'all'], cwd=cwd, env=env, capture_output=True, text=True)
+
+def _run_cmd(cmd, cwd, env):
+    result = subprocess.run(
+        cmd, cwd=str(cwd), env=env, capture_output=True, text=True, shell=False,
+    )
+    if result.returncode != 0:
+        pytest.fail(
+            'Command failed: ' + ' '.join(cmd) + '\n'
+            'cwd: ' + str(cwd) + '\n\n'
+            'STDOUT:\n' + result.stdout + '\n\n'
+            'STDERR:\n' + result.stderr
+        )
     return result
 
 
-def test_scoreboard_verify(example_dir, project_root):
-    target_dir = os.path.join(example_dir, 'scoreboard')
-
-    result = run_make_all(target_dir, project_root)
-
-    # Check for success
-    if result.returncode != 0:
-        pytest.fail(f'Make all failed with stderr:\n{result.stderr}\nStdout:\n{result.stdout}')
-
-
-def test_fifo_occupancy(example_dir, project_root):
-    target_dir = os.path.join(example_dir, 'fifo_occupancy')
-
-    result = run_make_all(target_dir, project_root)
-
-    if result.returncode != 0:
-        pytest.fail(f'Make all failed with stderr:\n{result.stderr}\nStdout:\n{result.stdout}')
+def _load_config(path):
+    cfg = path / 'example.json'
+    if not cfg.exists():
+        pytest.fail('Missing example.json in ' + str(path))
+    with cfg.open('r', encoding='utf-8') as f:
+        config = json.load(f)
+    for src in config['sources']:
+        if not (path / src).exists():
+            pytest.fail('Missing Verilog source: ' + str(path / src))
+    return config
 
 
-def test_fifo_latency(example_dir, project_root):
-    target_dir = os.path.join(example_dir, 'fifo_latency')
+def _run_iverilog(example_path, project_root):
+    env = _make_env(project_root)
+    config = _load_config(example_path)
+    build = example_path / 'build'
+    build.mkdir(exist_ok=True)
+    vvp_out = build / 'sim.vvp'
+    cmd = ['iverilog', '-g2012', '-o', str(vvp_out)]
+    top = config.get('top')
+    if top:
+        cmd.extend(['-s', top])
+    cmd.extend(config['sources'])
+    _run_cmd(cmd, example_path, env)
+    _run_cmd(['vvp', str(vvp_out)], example_path, env)
+    for item in config.get('run', []):
+        parts = shlex.split(item, posix=(os.name != 'nt'))
+        if parts and parts[0] == 'python':
+            parts[0] = sys.executable
+        _run_cmd(parts, example_path, env)
 
-    result = run_make_all(target_dir, project_root)
 
-    if result.returncode != 0:
-        pytest.fail(f'Make all failed with stderr:\n{result.stderr}\nStdout:\n{result.stdout}')
+def _run_example(example_path, project_root):
+    if shutil.which('make') and (example_path / 'Makefile').exists():
+        _run_cmd(['make', 'all'], example_path, _make_env(project_root))
+    else:
+        _run_iverilog(example_path, project_root)
+
+
+def test_scoreboard_verify(project_root):
+    _run_example(project_root / 'example' / 'scoreboard', project_root)
+
+
+def test_fifo_occupancy(project_root):
+    _run_example(project_root / 'example' / 'fifo_occupancy', project_root)
+
+
+def test_fifo_latency(project_root):
+    _run_example(project_root / 'example' / 'fifo_latency', project_root)

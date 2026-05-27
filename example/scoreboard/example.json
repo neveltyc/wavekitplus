@@ -1,0 +1,1 @@
+{"sources": ["fifo_tb.sv", "fifo.sv"], "top": null, "run": ["python verify.py"]}
