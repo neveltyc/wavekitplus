@@ -98,6 +98,40 @@ def test_rlshift_argument_order():
     assert [int(v) for v in r.value] == [1, 2, 4]
 
 
+# -- mixed width shift --
+
+def test_lshift_mixed_width():
+    data = _mk([1, 2, 4], width=8)
+    shift_amt = _mk([1, 2, 3], width=3)
+    r = data << shift_amt
+    assert [int(v) for v in r.value] == [2, 8, 32]
+    assert r.width == 15
+
+def test_rshift_mixed_width():
+    data = _mk([16, 32, 64], width=8)
+    shift_amt = _mk([1, 2, 3], width=3)
+    r = data >> shift_amt
+    assert [int(v) for v in r.value] == [8, 8, 8]
+    assert r.width == 8
+
+def test_rlshift_mixed_width():
+    shift_amt = _mk([1, 2, 3], width=3)
+    data = _mk([1, 2, 4], width=8)
+    r = data << shift_amt
+    assert [int(v) for v in r.value] == [2, 8, 32]
+
+# -- signed/unsigned error message --
+
+def test_lshift_typeerror_message():
+    a = _mk([1, 2], width=4, signed=True)
+    b = _mk([1, 1], width=4, signed=False)
+    try:
+        _ = a << b
+        raise AssertionError('should raise')
+    except ValueError as e:
+        assert 'signed' in str(e).lower() and 'unsigned' in str(e).lower()
+
+
 def test_rrshift_argument_order():
     w = _mk([0, 1, 2], width=4)
     r = 16 >> w

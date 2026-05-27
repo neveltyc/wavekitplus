@@ -597,7 +597,14 @@ class Waveform:
     @staticmethod
     # @jit
     def _lshift(a, b):
-        return a << b
+        try:
+            return a << b
+        except TypeError as e:
+            raise ValueError(
+                'cannot shift between signed and unsigned waveforms '
+                '(mixed numpy dtypes); use .as_signed() or .as_unsigned() '
+                'on one operand'
+            ) from e
 
 
     @staticmethod
@@ -605,17 +612,18 @@ class Waveform:
         base_width = self.width or 0
         if isinstance(other, Waveform):
             if other.width is None:
-                raise ValueError('width mismatch: None')
-            shift_width = 1 << other.width
+                raise ValueError('shift amount waveform has no width')
+            shift_width = (1 << other.width) - 1
         else:
             shift_width = other
-        return self._infer_logical_op_width(
-            other, inferred_width=base_width + shift_width)
+        return base_width + shift_width
 
     @staticmethod
     def _rlshift_width_fn(self, other):
         if isinstance(other, Waveform):
-            return self._infer_logical_op_width(other)
+            base_width = other.width or 0
+            max_shift = int(np.max(self.value)) if len(self.value) else 0
+            return base_width + max_shift
         elif self.width and isinstance(other, int):
             max_shift = int(np.max(self.value)) if len(self.value) else 0
             return max(other.bit_length() + max_shift, self.width)
@@ -624,14 +632,13 @@ class Waveform:
     @staticmethod
     def _rshift_width_fn(self, other):
         if isinstance(other, Waveform):
-            return self._infer_logical_op_width(other)
-        return self._infer_logical_op_width(
-            other, inferred_width=max((self.width or 0) - other, 0))
+            return self.width
+        return max((self.width or 0) - other, 0)
 
     @staticmethod
     def _rrshift_width_fn(self, other):
         if isinstance(other, Waveform):
-            return self._infer_logical_op_width(other)
+            return max(self.width or 0, other.width or 0)
         elif isinstance(other, int) and self.width:
             return max(other.bit_length(), self.width)
         return self.width
@@ -652,7 +659,14 @@ class Waveform:
     @staticmethod
     # @jit
     def _rshift(a, b):
-        return a >> b
+        try:
+            return a >> b
+        except TypeError as e:
+            raise ValueError(
+                'cannot shift between signed and unsigned waveforms '
+                '(mixed numpy dtypes); use .as_signed() or .as_unsigned() '
+                'on one operand'
+            ) from e
 
     def __rshift__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
