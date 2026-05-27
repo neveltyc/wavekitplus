@@ -399,22 +399,21 @@ class Waveform:
         result_signed : bool|None — None means inherit self.signed (or False for cmp)
         """
         self._check_binary_compat(other, kind=kind)
-
         lhs = self._get_value(other) if reverse else self.value
         rhs = self.value if reverse else self._get_value(other)
-
-        new_value = op(lhs, rhs)
 
         if callable(width_fn):
             new_width = width_fn(self, other)
         else:
             new_width = width_fn
 
-        if result_signed is None:
-            result_signed = False if kind == 'cmp' else self.signed
-
         if value_transformer is not None:
             lhs, rhs = value_transformer(lhs, rhs, new_width)
+
+        new_value = op(lhs, rhs)
+
+        if result_signed is None:
+            result_signed = False if kind == 'cmp' else self.signed
 
         result = Waveform(
             value=new_value,

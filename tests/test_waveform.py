@@ -673,3 +673,26 @@ def test_relative_preserves_metadata():
     result = wave.ahead()
     assert result.width == 8
     assert result.name == 'test_sig'
+
+
+def test_binary_op_value_transformer_runs_before_op():
+    import numpy as np
+    w = Waveform(value=np.array([5], dtype=np.uint64),
+                 clock=np.array([0], dtype=np.uint64),
+                 time=np.array([0], dtype=np.uint64),
+                 signal=Signal('w', 'w', 8, None, False))
+
+    op_inputs = []
+    def capturing_op(a, b):
+        op_inputs.append(a.dtype)
+        return a + b
+
+    def to_object(lhs, rhs, nw):
+        return lhs.astype(np.object_), rhs
+
+    w._binary_op(3, op=capturing_op, kind='arith',
+                 width_fn=lambda s, o: 8, value_transformer=to_object)
+
+    assert op_inputs[0] == np.object_, (
+        f'op saw {op_inputs[0]}, expected object — hook must run BEFORE op'
+    )
