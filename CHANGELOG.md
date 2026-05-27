@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.5 - 2026-05-27
+
+### Changed
+- Shift ops (__lshift__, __rlshift__, __rshift__, __rrshift__) migrated to _binary_op factory
+- 25/25 binary operations now share unified checks, xz_mask merge, and value_transformer hook
+- ~50 lines eliminated from waveform.py via consolidation
+
+### Added
+- _shift_dtype_upgrader: shared dtype upgrade for >64-bit shift results
+- 4 staticmethod width_fn helpers for shift width inference
+- test_shift_matrix.py: 15 targeted shift operation tests
+
 ## v0.9.4 - 2026-05-27
 
 ### Fixed

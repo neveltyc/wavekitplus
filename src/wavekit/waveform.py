@@ -599,8 +599,9 @@ class Waveform:
     def _lshift(a, b):
         return a << b
 
-    def __lshift__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_binary_compat(other, kind='shift')
+
+    @staticmethod
+    def _lshift_width_fn(self, other):
         base_width = self.width or 0
         if isinstance(other, Waveform):
             if other.width is None:
@@ -608,48 +609,45 @@ class Waveform:
             shift_width = 1 << other.width
         else:
             shift_width = other
-        new_width = self._infer_logical_op_width(
-            other,
-            inferred_width=base_width + shift_width,
-        )
+        return self._infer_logical_op_width(
+            other, inferred_width=base_width + shift_width)
 
-        new_value = self._lshift(
-            self.value.astype(np.object_) if new_width > 64 else self.value,
-            self._get_value(other),
-        )
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
-        )
-        return Waveform._merge_xz_mask(result, other)
-
-    def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_binary_compat(other, kind='shift')
+    @staticmethod
+    def _rlshift_width_fn(self, other):
         if isinstance(other, Waveform):
-            new_width = self._infer_logical_op_width(other)
+            return self._infer_logical_op_width(other)
         elif self.width and isinstance(other, int):
             max_shift = int(np.max(self.value)) if len(self.value) else 0
-            new_width = max(other.bit_length() + max_shift, self.width)
-        else:
-            new_width = self.width
-        shift_value = (
-            self.value.astype(np.object_)
-            if new_width is not None and new_width > 64
-            else self.value
+            return max(other.bit_length() + max_shift, self.width)
+        return self.width
+
+    @staticmethod
+    def _rshift_width_fn(self, other):
+        if isinstance(other, Waveform):
+            return self._infer_logical_op_width(other)
+        return self._infer_logical_op_width(
+            other, inferred_width=max((self.width or 0) - other, 0))
+
+    @staticmethod
+    def _rrshift_width_fn(self, other):
+        if isinstance(other, Waveform):
+            return self._infer_logical_op_width(other)
+        elif isinstance(other, int) and self.width:
+            return max(other.bit_length(), self.width)
+        return self.width
+    def __lshift__(self, other: WaveformOrScalar) -> Waveform:
+        return self._binary_op(
+            other, op=self._lshift, kind='shift',
+            width_fn=Waveform._lshift_width_fn,
+            value_transformer=_shift_dtype_upgrader,
         )
-        new_value = self._get_value(other) << shift_value
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+
+    def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
+        return self._binary_op(
+            other, op=self._lshift, kind='shift', reverse=True,
+            width_fn=Waveform._rlshift_width_fn,
+            value_transformer=_shift_dtype_upgrader,
         )
-        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -657,47 +655,16 @@ class Waveform:
         return a >> b
 
     def __rshift__(self, other: WaveformOrScalar) -> Waveform:
-        self._check_binary_compat(other, kind='shift')
-
-        if isinstance(other, Waveform):
-            new_width = self._infer_logical_op_width(other)
-        else:
-            new_width = self._infer_logical_op_width(
-                other,
-                inferred_width=max((self.width or 0) - other, 0),
-            )
-
-        new_value = self._rshift(self.value, self._get_value(other))
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._rshift, kind='shift',
+            width_fn=Waveform._rshift_width_fn,
         )
-        return Waveform._merge_xz_mask(result, other)
 
     def __rrshift__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
-        self._check_binary_compat(other, kind='shift')
-
-        if isinstance(other, Waveform):
-            new_width = self._infer_logical_op_width(other)
-        elif isinstance(other, int) and self.width:
-            new_width = max(other.bit_length(), self.width)
-        else:
-            new_width = self.width
-
-        new_value = self._get_value(other) >> self.value
-
-        result = Waveform(
-            value=new_value,
-            clock=self.clock,
-            time=self.time,
-            signal=Signal('', '', new_width, None, self.signed),
-            xz_mask=self.xz_mask.copy() if self.xz_mask is not None else None,
+        return self._binary_op(
+            other, op=self._rshift, kind='shift', reverse=True,
+            width_fn=Waveform._rrshift_width_fn,
         )
-        return Waveform._merge_xz_mask(result, other)
 
     @staticmethod
     # @jit
@@ -1625,3 +1592,12 @@ class Waveform:
             same = wave == wave.back()
         """
         return self.relative(-n, pad, pad_value)
+
+def _shift_dtype_upgrader(lhs, rhs, new_width):
+    if new_width is not None and new_width > 64:
+        if isinstance(lhs, np.ndarray) and lhs.dtype != np.object_:
+            lhs = lhs.astype(np.object_)
+        if isinstance(rhs, np.ndarray) and rhs.dtype != np.object_:
+            rhs = rhs.astype(np.object_)
+    return lhs, rhs
+
