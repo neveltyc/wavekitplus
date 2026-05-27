@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.7 - 2026-05-27
+
+### Added
+- FSDB subrange support: `load_waveform` now handles range suffixes (e.g. `data[3:0]`)
+  by splitting the path, loading the full signal from NPI, then slicing in Python
+- Shift signedness consistency check: `_check_binary_compat` now rejects mixed
+  signed/unsigned shift operands with a clear ValueError and remediation hint
+
+### Fixed
+- `__rrshift__` now passes `_shift_dtype_upgrader` as `value_transformer`, fixing
+  overflow for large-scalar right shifts (e.g. `(1 << 70) >> shifts`)
+- `__getitem__`: unsupported index type now raises `TypeError` (was bare `Exception`)
+- `split_bits`: padding/sum validation errors now raise `ValueError` (was bare `Exception`)
+- `concatenate`: signed waveform rejection now raises `ValueError` (was bare `Exception`)
+- Subrange signal metadata: `match_signals` now correctly sets `width` and preserves
+  `signed` for signals matched with range suffixes, making `root_scope` and global
+  matching consistent
+- Bitwise ops (`&`, `|`, `^`) now also check signedness consistency (matching the
+  shift check added in v0.9.7), replacing NumPy TypeError with a clear ValueError
+- 10 bare `Exception` raises in `scope.py` and `readers/base.py` upgraded to
+  `ValueError` (pattern matching duplicates, clock pattern mismatch)
+
+### Changed
+- Internal spec documents (`wavekit_plus_dev_spec.md`, `wavekitplus_feature_spec.md`)
+  removed from tracking; `.gitignore` expanded with `*_spec.md`
+
 ## v0.9.6 - 2026-05-27
 
 ### Changed

@@ -181,14 +181,14 @@ def _traverse_scope_tree(
                 for lk, lv in leaf_fn(scope, remaining).items():
                     key = new_k + lk
                     if key in res:
-                        raise Exception(f'pattern {p} match more than one result')
+                        raise ValueError(f'pattern {p} match more than one result')
                     res[key] = _prepend_scope_name(lv, scope.name)
 
                 for child_scope in scope.child_scope_list:
                     for ck, cv in _traverse_scope_tree(child_scope, remaining, leaf_fn).items():
                         key = new_k + ck
                         if key in res:
-                            raise Exception(f'pattern {p} match more than one result')
+                            raise ValueError(f'pattern {p} match more than one result')
                         res[key] = _prepend_scope_name(cv, scope.name)
     return res
 
@@ -412,7 +412,7 @@ def match_signals_relative(scope, pattern_parts):
     if not tail:
         for key, sig in _match_local_signals(scope, head).items():
             if key in out:
-                raise Exception(f'pattern matches more than one result: {key}')
+                raise ValueError(f'pattern matches more than one result: {key}')
             out[key] = sig
         return out
     for key, child_scope in _match_child_scopes(scope, head).items():
@@ -420,7 +420,7 @@ def match_signals_relative(scope, pattern_parts):
         for ck, cv in child_matches.items():
             combined = _combine_keys(key, ck)
             if combined in out:
-                raise Exception(f'pattern matches more than one result: {combined}')
+                raise ValueError(f'pattern matches more than one result: {combined}')
             out[combined] = cv
     return out
 
@@ -434,7 +434,7 @@ def match_scopes_relative(scope, pattern_parts):
         out = {}
         for key, child in _match_child_scopes(scope, head).items():
             if key in out:
-                raise Exception(f'pattern matches more than one result: {key}')
+                raise ValueError(f'pattern matches more than one result: {key}')
             out[key] = child
         return out
     out = {}
@@ -443,6 +443,6 @@ def match_scopes_relative(scope, pattern_parts):
         for ck, cv in child_matches.items():
             combined = _combine_keys(key, ck)
             if combined in out:
-                raise Exception(f'pattern matches more than one result: {combined}')
+                raise ValueError(f'pattern matches more than one result: {combined}')
             out[combined] = cv
     return out

@@ -375,10 +375,10 @@ class Waveform:
 
         if kind in ('bitwise', 'shift'):
             self._check_logical_op_type(other)
-        if kind == 'shift' and isinstance(other, Waveform):
+        if kind in ('shift', 'bitwise') and isinstance(other, Waveform):
             if self.signed != other.signed:
                 raise ValueError(
-                    'signedness mismatch in shift; use .as_signed() or '
+                    f'signedness mismatch in {kind}; use .as_signed() or '
                     '.as_unsigned() on one operand'
                 )
 

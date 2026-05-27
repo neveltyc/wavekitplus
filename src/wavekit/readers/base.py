@@ -256,7 +256,7 @@ class Reader:
             if common_keys:
                 signal1s = [dict1[k].name for k in common_keys]
                 signal2s = [dict2[k].name for k in common_keys]
-                raise Exception(
+                raise ValueError(
                     'found more than one signal with the same keys: '
                     f'keys:{list(common_keys)} , signals:{signal1s + signal2s}'
                 )
@@ -329,7 +329,7 @@ class Reader:
         ) -> dict[tuple[Any, ...], Scope]:
             common_keys = set(dict1.keys()).intersection(dict2.keys())
             if common_keys:
-                raise Exception(
+                raise ValueError(
                     'found more than one scope with the same keys: ' f'keys:{list(common_keys)}'
                 )
             return {**dict1, **dict2}
@@ -412,7 +412,7 @@ class Reader:
         """
         matched_clocks = self.get_matched_signals(clock_pattern, root_scope=root_scope)
         if not matched_clocks:
-            raise Exception(f'clock pattern {clock_pattern} can not match any signal')
+            raise ValueError(f'clock pattern {clock_pattern} can not match any signal')
 
         matched_signals = self.get_matched_signals(pattern, root_scope=root_scope)
         if not matched_signals:
@@ -439,7 +439,7 @@ class Reader:
         else:
             # Per-signal clock: keys must match exactly
             if set(matched_clocks.keys()) != set(matched_signals.keys()):
-                raise Exception(
+                raise ValueError(
                     f'clock pattern {clock_pattern!r} matched keys {sorted(matched_clocks.keys())} '
                     f'which do not match signal pattern keys {sorted(matched_signals.keys())}'
                 )
