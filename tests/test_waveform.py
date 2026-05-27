@@ -696,3 +696,14 @@ def test_binary_op_value_transformer_runs_before_op():
     assert op_inputs[0] == np.object_, (
         f'op saw {op_inputs[0]}, expected object — hook must run BEFORE op'
     )
+
+
+def test_split_bits_sum_mismatch_raises_valueerror():
+    from wavekit.waveform import Waveform
+    from wavekit.signal import Signal
+    w = Waveform(value=np.array([0xFF], dtype=np.uint64),
+        clock=np.array([0], dtype=np.uint64),
+        time=np.array([0], dtype=np.uint64),
+        signal=Signal('w','w',8,None,False))
+    with pytest.raises(ValueError):
+        w.split_bits([3, 3], padding=False)

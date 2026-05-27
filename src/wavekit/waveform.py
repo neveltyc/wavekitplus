@@ -1157,7 +1157,7 @@ class Waveform:
             ]
         else:
             if sum(bit_group_size) != width:
-                raise Exception(
+                raise ValueError(
                     'the sum of the bit_group_size must be equal to the width when padding == False'
                 )
 
