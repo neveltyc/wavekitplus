@@ -405,9 +405,9 @@ def test_split_concat_merge():
 
 def test_split_bits_errors():
     wave = build_waveform([1, 2, 3], width=10)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         _ = wave.split_bits(3, padding=False)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         _ = wave.split_bits([3, 4], padding=False)
 
 
@@ -780,3 +780,40 @@ def test_concatenate_signed_raises_valueerror():
         signal=Signal('a','a',4,None,True))
     with pytest.raises(ValueError):
         Waveform.concatenate([a, a])
+
+# -- v0.9.7 regression: bitwise signedness consistency --
+
+@pytest.mark.parametrize('width_a,width_b', [
+    (4, 4),
+    (64, 2),
+    (32, 32),
+    (64, 64),
+])
+def test_bitwise_rejects_signedness_mismatch_consistently(width_a, width_b):
+    a = Waveform(value=np.array([1], dtype=np.int64),
+        clock=np.array([0], dtype=np.uint64),
+        time=np.array([0], dtype=np.uint64),
+        signal=Signal('a','a',width_a,None,True))
+    b = Waveform(value=np.array([1], dtype=np.uint64),
+        clock=np.array([0], dtype=np.uint64),
+        time=np.array([0], dtype=np.uint64),
+        signal=Signal('b','b',width_b,None,False))
+    with pytest.raises(ValueError, match='signedness'):
+        _ = a & b
+    with pytest.raises(ValueError, match='signedness'):
+        _ = a | b
+    with pytest.raises(ValueError, match='signedness'):
+        _ = a ^ b
+
+def test_bitwise_same_signedness_works():
+    a = Waveform(value=np.array([1, 2], dtype=np.int64),
+        clock=np.arange(2, dtype=np.uint64),
+        time=np.arange(2, dtype=np.uint64)*10,
+        signal=Signal('a','a',4,None,True))
+    b = Waveform(value=np.array([3, 4], dtype=np.int64),
+        clock=np.arange(2, dtype=np.uint64),
+        time=np.arange(2, dtype=np.uint64)*10,
+        signal=Signal('b','b',4,None,True))
+    _ = a & b
+    _ = a | b
+    _ = a ^ b

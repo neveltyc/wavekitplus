@@ -215,7 +215,7 @@ def test_vcd_reader_load_matched_waveforms_brace_expansion(vcd_path):
 def test_vcd_reader_load_matched_waveforms_regex_key_conflict(vcd_path):
     vcd_reader = VcdReader(str(vcd_path))
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         vcd_reader.load_matched_waveforms(
             r'tb.u0.@J_[A-Za-z0-9_]+\[3:0\]',
             'tb.tck',
@@ -247,14 +247,14 @@ def test_vcd_reader_load_matched_waveforms_uses_signal_range(vcd_path):
 
 def test_vcd_reader_clock_pattern_error(vcd_path):
     vcd_reader = VcdReader(str(vcd_path))
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         vcd_reader.load_matched_waveforms('tb.u0.J_state[3:0]', 'tb.no_clock')
 
 
 def test_vcd_reader_clock_pattern_key_mismatch_error(vcd_path):
     # clock brace expansion yields different keys than the signal pattern
     vcd_reader = VcdReader(str(vcd_path))
-    with pytest.raises(Exception, match='do not match signal pattern keys'):
+    with pytest.raises(ValueError, match='do not match signal pattern keys'):
         vcd_reader.load_matched_waveforms(
             'tb.u0.J_{state,next}[3:0]',  # keys: {('state',), ('next',)}
             'tb.{tck,tms}',  # keys: {('tck',), ('tms',)} — mismatch

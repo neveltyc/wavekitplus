@@ -144,7 +144,8 @@ def _traverse_scope_tree(
                 # Current scope IS the target module — apply leaf_fn here
                 for lk, lv in leaf_fn(scope, remaining).items():
                     key = (scope.name,) + lk
-                    assert key not in res
+                    if key in res:
+                        raise ValueError(f'pattern matches more than one result: {key}')
                     res[key] = _prepend_scope_name(lv, scope.name)
 
                 for child_scope in scope.child_scope_list:
@@ -261,9 +262,8 @@ def match_signals(
                         assert len(k) == 0
                         key = (match.groups(),)
                         if len(pattern_list) == 1:
-                            assert (
-                                key not in res
-                            ), f'pattern {name_regex} matches more than one signal'
+                            if key in res:
+                                raise ValueError(f'pattern {name_regex} matches more than one signal')
                             res[key] = resolve_leaf(sig, sig_bare, range_suffix)
                         elif sig.member_list is not None:
                             for ck, cv in _match_signals_in_list(
@@ -282,7 +282,8 @@ def match_signals(
                             ).items():
                                 res[key + ck] = cv
                     elif len(pattern_list) == 1:
-                        assert key not in res
+                        if key in res:
+                            raise ValueError(f'pattern matches more than one result: {key}')
                         res[key] = resolve_leaf(sig, sig_bare, range_suffix)
                     elif sig.member_list is not None:
                         for ck, cv in _match_signals_in_list(

@@ -21,8 +21,7 @@ All notable changes to this project are documented in this file.
   matching consistent
 - Bitwise ops (`&`, `|`, `^`) now also check signedness consistency (matching the
   shift check added in v0.9.7), replacing NumPy TypeError with a clear ValueError
-- 10 bare `Exception` raises in `scope.py` and `readers/base.py` upgraded to
-  `ValueError` (pattern matching duplicates, clock pattern mismatch)
+- 10 bare `Exception` raises in `scope.py` and `readers/base.py` upgraded to `ValueError` (pattern matching duplicates, clock pattern mismatch); 3 internal `assert` statements in `scope.py` also upgraded to `ValueError` for consistency
 
 ### Changed
 - Internal spec documents (`wavekit_plus_dev_spec.md`, `wavekitplus_feature_spec.md`)
