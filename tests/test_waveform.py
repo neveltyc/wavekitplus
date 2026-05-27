@@ -817,3 +817,64 @@ def test_bitwise_same_signedness_works():
     _ = a & b
     _ = a | b
     _ = a ^ b
+
+# -- v0.9.8 regression: huge scalar arithmetic (Problem A) --
+
+@pytest.mark.parametrize('expr', [
+    lambda w: w + (1 << 70),
+    lambda w: (1 << 70) + w,
+    lambda w: w - (1 << 70),
+    lambda w: (1 << 70) - w,
+    lambda w: w * (1 << 70),
+    lambda w: (1 << 70) * w,
+    lambda w: w // (1 << 70),
+    lambda w: (1 << 70) // w,
+    lambda w: w % (1 << 70),
+    lambda w: (1 << 70) % w,
+])
+def test_arithmetic_rejects_huge_scalar(expr):
+    w = build_waveform([1, 2], width=8)
+    with pytest.raises(ValueError, match='width too large'):
+        expr(w)
+
+
+# -- v0.9.8 regression: scalar zero width metadata (Problem B) --
+
+def test_add_zero_keeps_width_metadata():
+    w = build_waveform([1, 2], width=8)
+    assert (w + 0).width is not None
+    assert (0 + w).width is not None
+
+def test_mul_zero_keeps_width_metadata():
+    w = build_waveform([1, 2], width=8)
+    assert (w * 0).width is not None
+    assert (0 * w).width is not None
+
+def test_get_width_zero_returns_one():
+    from wavekit.waveform import Waveform
+    assert Waveform._get_width(0) == 1
+    assert Waveform._get_width(1) == 1
+    assert Waveform._get_width(0xFF) == 8
+
+
+# -- v0.9.8 regression: negative scalar in bitwise/shift (Problem C) --
+
+def test_shift_rejects_negative_scalar():
+    w = build_waveform([1, 2], width=8)
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = w << -1
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = w >> -1
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = -1 >> w
+
+def test_bitwise_rejects_negative_scalar():
+    w = build_waveform([1, 2], width=8)
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = w & -1
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = w | -1
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = w ^ -1
+    with pytest.raises(ValueError, match='does not support negative scalar'):
+        _ = -1 & w

@@ -354,7 +354,8 @@ class Waveform:
         if self.width is not None and self.width > 64:
             raise ValueError('width too large')
 
-        if isinstance(other, Waveform) and other.width is not None and other.width > 64:
+        other_width = self._get_width(other)
+        if other_width is not None and other_width > 64:
             raise ValueError('width too large')
 
     # ── Unified binary operation infrastructure ──
@@ -375,6 +376,8 @@ class Waveform:
 
         if kind in ('bitwise', 'shift'):
             self._check_logical_op_type(other)
+            if isinstance(other, int) and other < 0:
+                raise ValueError(f'{kind} does not support negative scalar')
         if kind in ('shift', 'bitwise') and isinstance(other, Waveform):
             if self.signed != other.signed:
                 raise ValueError(
@@ -444,7 +447,7 @@ class Waveform:
         if isinstance(other, Waveform):
             return other.width
         elif isinstance(other, int):
-            return int.bit_length(other)
+            return max(1, int.bit_length(other))
         elif isinstance(other, float):
             return None
         else:
@@ -467,7 +470,7 @@ class Waveform:
         return self._binary_op(
             other, op=self._add, kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(
-                lambda: (max(s.width, s._get_width(o)) + 1) if s.width and s._get_width(o) else None),
+                lambda: (max(s.width, s._get_width(o)) + 1) if s.width is not None and s._get_width(o) is not None else None),
         )
     def __radd__(self, other: WaveformOrScalar) -> Waveform:
         return self.__add__(other)
@@ -497,7 +500,7 @@ class Waveform:
         return self._binary_op(
             other, op=self._mul, kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(
-                lambda: (s.width + s._get_width(o)) if s.width and s._get_width(o) else None),
+                lambda: (s.width + s._get_width(o)) if s.width is not None and s._get_width(o) is not None else None),
         )
     def __rmul__(self, other: WaveformOrScalar) -> Waveform:
         return self.__mul__(other)
