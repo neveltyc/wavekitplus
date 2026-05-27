@@ -31,3 +31,4 @@ release_tag.local.ps1
 .claude/
 .opencode/
 .trellis/
+*_spec.md
