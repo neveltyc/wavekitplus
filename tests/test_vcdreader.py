@@ -508,3 +508,22 @@ def test_cycle_slice_include_end(vcd_path):
     sliced = full.cycle_slice(10, 20, include_end=True)
     assert len(sliced.value) == 11
     assert sliced.clock[-1] == 20
+
+
+def test_global_get_matched_signals_subrange_width(vcd_path):
+    r = VcdReader(str(vcd_path))
+    matches = r.get_matched_signals('tb.u0.J_state[3:0]')
+    sig = next(iter(matches.values()))
+    assert sig.full_name == 'tb.u0.J_state[3:0]'
+    assert sig.width == 4
+
+def test_root_scope_and_global_consistent(vcd_path):
+    r = VcdReader(str(vcd_path))
+    tb = r.top_scope_list()[0]
+    global_match = r.get_matched_signals('tb.u0.J_state[3:0]')
+    u0 = [c for c in tb.child_scope_list if c.name == 'u0'][0]
+    relative_match = r.get_matched_signals('J_state[3:0]', root_scope=u0)
+    g_sig = next(iter(global_match.values()))
+    r_sig = next(iter(relative_match.values()))
+    assert g_sig.width == r_sig.width == 4
+    assert g_sig.full_name == r_sig.full_name == 'tb.u0.J_state[3:0]'
