@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pytest
 
@@ -878,3 +879,48 @@ def test_bitwise_rejects_negative_scalar():
         _ = w ^ -1
     with pytest.raises(ValueError, match='does not support negative scalar'):
         _ = -1 & w
+
+# -- v0.9.8 regression: unsigned arithmetic rejects negative scalar (Problem A) --
+
+def test_unsigned_arithmetic_rejects_negative_scalar():
+    w = build_waveform([1, 2], width=8)
+    with pytest.raises(ValueError):
+        _ = w + (-1)
+    with pytest.raises(ValueError):
+        _ = (-1) + w
+    with pytest.raises(ValueError):
+        _ = w * (-1)
+    with pytest.raises(ValueError):
+        _ = (-1) * w
+    with pytest.raises(ValueError):
+        _ = (-1) // w
+    with pytest.raises(ValueError):
+        _ = (-1) % w
+
+def test_unsigned_subtract_positive_scalar_allowed():
+    w = build_waveform([5, 10], width=8)
+    r = w - 1
+    assert r.width is not None
+
+
+# -- v0.9.8 regression: max shift result width (Problem B) --
+
+def test_lshift_rejects_absurd_scalar_shift_amount():
+    w = build_waveform([1], width=8)
+    with pytest.raises(ValueError, match='shift result width'):
+        _ = w << (1 << 20)
+
+def test_rlshift_rejects_absurd_waveform_shift_value():
+    shift = build_waveform([1 << 20], width=32)
+    with pytest.raises(ValueError, match='shift result width'):
+        _ = 1 << shift
+
+
+# -- v0.9.8 regression: 64-bit full slice no overflow warning (Problem C) --
+
+def test_full_width_64bit_slice_no_overflow_warning():
+    w = build_waveform([0xFFFFFFFFFFFFFFFF], width=64)
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        r = w[63:0]
+    assert r.value[0] == np.uint64(0xFFFFFFFFFFFFFFFF)

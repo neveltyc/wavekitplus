@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.8 - 2026-05-27
+
+### Fixed
+- Arithmetic ops now reject negative scalars with unsigned waveforms, preventing
+  raw OverflowError from NumPy on expressions like w + (-1) or (-1) * w
+- _check_arithmetic_op_width now checks scalar int width via _get_width(),
+  intercepting oversized Python int scalars before NumPy sees them
+- _get_width(0) returns 1 instead of 0, so w + 0 and w * 0 preserve width
+  metadata instead of collapsing to None
+- Bitwise and shift ops now reject negative scalar ints with a clear ValueError
+- _fast_bitsel: 64-bit full slice no longer triggers NumPy overflow warning
+
+### Added
+- Max shift result width guard (MAX_SHIFT_RESULT_WIDTH = 4096) prevents
+  absurdly wide shifts from exhausting memory
+
+
 ## v0.9.7 - 2026-05-27
 
 ### Added

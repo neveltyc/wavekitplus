@@ -60,6 +60,8 @@ class Waveform:
 
     WaveformOrScalar = Union['Waveform', int, float]
 
+    MAX_SHIFT_RESULT_WIDTH = 4096
+
     def __init__(
         self,
         value: npt.NDArray[Any],
@@ -373,6 +375,11 @@ class Waveform:
 
         if kind == 'arith':
             self._check_arithmetic_op_width(other)
+            if isinstance(other, int) and other < 0 and not self.signed:
+                raise ValueError(
+                    'arith does not support negative scalar with unsigned waveform; '
+                    'use subtraction or convert waveform with .as_signed()'
+                )
 
         if kind in ('bitwise', 'shift'):
             self._check_logical_op_type(other)
@@ -415,6 +422,12 @@ class Waveform:
             new_width = width_fn(self, other)
         else:
             new_width = width_fn
+
+        if kind == 'shift' and new_width is not None and new_width > Waveform.MAX_SHIFT_RESULT_WIDTH:
+            raise ValueError(
+                f'shift result width {new_width} exceeds limit of '
+                f'{Waveform.MAX_SHIFT_RESULT_WIDTH}'
+            )
 
         if value_transformer is not None:
             lhs, rhs = value_transformer(lhs, rhs, new_width)
@@ -776,7 +789,11 @@ class Waveform:
     @staticmethod
     # @jit
     def _fast_bitsel(value, start: int, width: int):
-        return (value >> np.uint64(start)) & ((np.uint64(1) << np.uint64(width)) - np.uint64(1))
+        if width == 64:
+            mask = np.uint64((1 << 64) - 1)
+        else:
+            mask = (np.uint64(1) << np.uint64(width)) - np.uint64(1)
+        return (value >> np.uint64(start)) & mask
 
     @staticmethod
     def _bitsel(value, start: int, width: int):
