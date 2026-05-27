@@ -245,6 +245,7 @@ def match_signals(
                 sig,
                 full_name=f'{sig_bare}{range_suffix}' if range_suffix else sig.name,
                 range=new_range,
+                width=h - low + 1 if range_suffix else sig.width,
             )
 
         res: dict[tuple[Any, ...], Signal] = {}
@@ -348,7 +349,7 @@ def _build_signal_with_range(sig, range_suffix):
         full_name=new_full_name,
         width=hi - lo + 1,
         range=None,
-        signed=False,
+        signed=sig.signed,
     )
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import importlib
 from collections import defaultdict
 from collections.abc import Sequence
@@ -13,6 +14,7 @@ from ...scope import Scope
 from ...signal import Signal, SignalCompositeType
 from ...waveform import Waveform
 from ..base import Reader
+from ..pattern_parser import split_by_range_expr
 from ..edge_detect import select_clock_edges
 from .npi_fsdb_reader import (
     NPI_FSDB_CT_ARRAY,
@@ -204,14 +206,15 @@ class FsdbReader(Reader):
                 'xz_mask is not yet supported for FSDB reader'
             )
 
-        signal_path = signal.full_name if isinstance(signal, Signal) else signal
+        signal_raw = signal.full_name if isinstance(signal, Signal) else signal
+        bare_signal_path, requested_range = split_by_range_expr(signal_raw)
         clock_path = clock.full_name if isinstance(clock, Signal) else clock
 
         # Resolve NPI signal handles — reuse the handle if already available
         npi_signal = (
             signal._npi_signal
             if isinstance(signal, FsdbSignal) and signal._npi_signal is not None
-            else self.file_handle.get_signal(signal_path)
+            else self.file_handle.get_signal(bare_signal_path)
         )
         npi_clock = (
             clock._npi_signal
@@ -289,7 +292,7 @@ class FsdbReader(Reader):
             width=npi_signal.width(),
             signed=False,
             sample_on_posedge=sample_on_posedge,
-            signal=signal_path,
+            signal=bare_signal_path,
             clock_offset=clock_offset,
         )
 
@@ -299,7 +302,32 @@ class FsdbReader(Reader):
             begin_time_actual if begin_time is not None else None,
             end_time if end_time is not None else None,
         )
-        return self._finalize_loaded_waveform(result, signal_path, signed=signed)
+        if requested_range:
+            m = re.fullmatch(r'\[(\d+)(?::(\d+))?\]', requested_range)
+            if m is None:
+                raise ValueError(
+                    f"unsupported range access for signal '{bare_signal_path}': "
+                    f'{requested_range}'
+                )
+            high = int(m.group(1))
+            low = int(m.group(2)) if m.group(2) is not None else high
+            full_width = npi_signal.width()
+            if low < 0:
+                raise ValueError(f'bit index {low} cannot be negative')
+            if high < low:
+                raise ValueError(
+                    f'bit range {requested_range} invalid (high < low)'
+                )
+            if high >= full_width:
+                raise ValueError(
+                    f"bit index {high} out of range for signal "
+                    f"'{bare_signal_path}' with width {full_width}"
+                )
+            if high - low + 1 < full_width:
+                result = result[high:low]
+
+        display_path = signal_raw if requested_range else bare_signal_path
+        return self._finalize_loaded_waveform(result, display_path, signed=signed)
 
     def top_scope_list(self) -> Sequence[Scope]:
         if not hasattr(self, '_top_scope_list'):

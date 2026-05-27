@@ -375,6 +375,12 @@ class Waveform:
 
         if kind in ('bitwise', 'shift'):
             self._check_logical_op_type(other)
+        if kind == 'shift' and isinstance(other, Waveform):
+            if self.signed != other.signed:
+                raise ValueError(
+                    'signedness mismatch in shift; use .as_signed() or '
+                    '.as_unsigned() on one operand'
+                )
 
     def _binary_op(
         self,
@@ -678,6 +684,7 @@ class Waveform:
         return self._binary_op(
             other, op=self._rshift, kind='shift', reverse=True,
             width_fn=Waveform._rrshift_width_fn,
+            value_transformer=_shift_dtype_upgrader,
         )
 
     @staticmethod
@@ -827,7 +834,7 @@ class Waveform:
             start = index
             width = 1
         else:
-            raise Exception('unsupported index type')
+            raise TypeError(f'unsupported index type: {type(index).__name__}')
 
         new_value = self._bitsel(self.value, start, width)
         return Waveform(
@@ -1143,7 +1150,7 @@ class Waveform:
         width = self.width
         if isinstance(bit_group_size, int):
             if (not padding) and (width % bit_group_size != 0):
-                raise Exception('width must be a multiple of bit_group_size when padding is false')
+                raise ValueError('width must be a multiple of bit_group_size when padding is false')
             return [
                 self[min(i + bit_group_size - 1, width - 1) : i]
                 for i in range(0, width, bit_group_size)
@@ -1192,7 +1199,7 @@ class Waveform:
             bus32 = Waveform.concatenate([byte0, byte1, byte2, byte3])
         """
         if not all(not w.signed for w in waves):
-            raise Exception('all waveforms should be unsigned')
+            raise ValueError('all waveforms should be unsigned')
         if not waves:
             raise ValueError('concatenate() requires at least one waveform')
 
