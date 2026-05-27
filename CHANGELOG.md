@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.4 - 2026-05-27
+
+### Fixed
+- value_transformer hook in _binary_op: runs BEFORE op (was dead code after op)
+- test_adversarial.py: fully integrated into pytest collection (was excluded by collect_ignore)
+- test_examples.py: cross-platform runner with iverilog+vvp fallback (no longer requires make)
+- conftest.py: removed stale collect_ignore
+
+### Added
+- test_binary_op_value_transformer_runs_before_op regression test
+- example/*.json configs for platform-independent example execution
+
 ## v0.9.3 - 2026-05-26
 
 ### Changed

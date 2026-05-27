@@ -19,27 +19,6 @@ from wavekit.waveform import Waveform
 from wavekit.signal import Signal
 from wavekit import VcdReader
 
-PASSED = []
-FAILED = []
-
-def ok(name, extra=''):
-    PASSED.append(name)
-    tail = f'  ({extra})' if extra else ''
-    print(f'  PASS  {name}{tail}')
-
-def fail(name, err):
-    FAILED.append((name, str(err)))
-    print(f'  FAIL  {name}: {err}')
-
-def t(name, fn):
-    try:
-        fn()
-        ok(name)
-    except Exception as e:
-        fail(name, e)
-        traceback.print_exc()
-
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def mkw(vals, w=8, signed=False, xz=None):
@@ -72,7 +51,6 @@ def assert_xz_shape(w, label=''):
     assert w.xz_mask.shape == w.value.shape, \
         f'{label}: shape mismatch: xz_mask={w.xz_mask.shape} vs value={w.value.shape}'
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 print('=' * 60)
 print('Part 1: xz_mask propagation — every Waveform method')
@@ -93,53 +71,44 @@ def test_copy():
     # Deep copy check
     r.xz_mask[0] = not r.xz_mask[0]
     assert r.xz_mask[0] != W.xz_mask[0], 'copy: not deep'
-t('copy preserves xz_mask', test_copy)
 
 def test_as_signed():
     r = W.as_signed()
     assert_xz_shape(r, 'as_signed')
     assert np.array_equal(r.xz_mask, W.xz_mask)
-t('as_signed preserves xz_mask', test_as_signed)
 
 def test_as_unsigned():
     r = W.as_signed().as_unsigned()
     assert_xz_shape(r, 'as_unsigned')
-t('as_unsigned preserves xz_mask', test_as_unsigned)
 
 def test_invert():
     r = ~W
     assert_xz_shape(r, '__invert__')
     assert np.array_equal(r.xz_mask, W.xz_mask)
-t('__invert__ preserves xz_mask', test_invert)
 
 def test_vectorized_map():
     r = W.vectorized_map(lambda x: x * 2)
     assert_xz_shape(r, 'vectorized_map')
     assert np.array_equal(r.xz_mask, W.xz_mask)
-t('vectorized_map preserves xz_mask', test_vectorized_map)
 
 def test_map():
     r = W.map(lambda x: x * 2)
     assert_xz_shape(r, 'map')
-t('map preserves xz_mask', test_map)
 
 def test_bit_count():
     r = W.bit_count()
     assert_xz_shape(r, 'bit_count')
-t('bit_count preserves xz_mask', test_bit_count)
 
 def test_compress():
     r = W.compress()
     # compress removes consecutive duplicates; xz_mask should shrink accordingly
     assert r.xz_mask is not None, 'compress: xz_mask is None'
     assert len(r.xz_mask) == len(r.value), 'compress: shape mismatch'
-t('compress preserves xz_mask', test_compress)
 
 def test_unique_consecutive():
     r = W.unique_consecutive()
     assert r.xz_mask is not None, 'unique_consecutive: xz_mask is None'
     assert len(r.xz_mask) == len(r.value)
-t('unique_consecutive preserves xz_mask', test_unique_consecutive)
 
 # ── Slicing / windowing ──
 
@@ -147,83 +116,69 @@ def test_getitem_slice():
     r = W[6:0]  # bits 6 down to 0
     assert_xz_shape(r, '__getitem__ slice')
     assert np.array_equal(r.xz_mask, W.xz_mask)
-t('__getitem__[6:0] preserves xz_mask', test_getitem_slice)
 
 def test_getitem_int():
     r = W[3]  # single bit
     assert_xz_shape(r, '__getitem__ int')
     assert np.array_equal(r.xz_mask, W.xz_mask)
-t('__getitem__[3] preserves xz_mask', test_getitem_int)
 
 def test_time_slice():
     r = W.time_slice(10, 30)
     assert_xz_shape(r, 'time_slice')
-t('time_slice preserves xz_mask', test_time_slice)
 
 def test_cycle_slice():
     r = W.cycle_slice(1, 4)
     assert_xz_shape(r, 'cycle_slice')
     assert len(r.xz_mask) == 3
-t('cycle_slice preserves xz_mask', test_cycle_slice)
 
 def test_take():
     r = W.take([0, 2, 4])
     assert_xz_shape(r, 'take')
     assert len(r.xz_mask) == 3
     assert r.xz_mask[0] == True and r.xz_mask[1] == True and r.xz_mask[2] == False
-t('take preserves xz_mask at correct indices', test_take)
 
 def test_mask():
     cond = np.array([True, False, True, False, True])
     r = W.mask(cond)
     assert_xz_shape(r, 'mask')
     assert len(r.xz_mask) == 3
-t('mask preserves xz_mask', test_mask)
 
 def test_filter():
     r = W.filter(lambda x: x > 15)
     assert_xz_shape(r, 'filter')
-t('filter preserves xz_mask', test_filter)
 
 def test_vectorized_filter():
     r = W.vectorized_filter(lambda x: x > 15)
     assert_xz_shape(r, 'vectorized_filter')
-t('vectorized_filter preserves xz_mask', test_vectorized_filter)
 
 # ── Shift / relative ──
 
 def test_ahead():
     r = W.ahead(1)
     assert_xz_shape(r, 'ahead')
-t('ahead preserves xz_mask', test_ahead)
 
 def test_back():
     r = W.back(1)
     assert_xz_shape(r, 'back')
-t('back preserves xz_mask', test_back)
 
 def test_relative_0():
     r = W.relative(0)
     assert_xz_shape(r, 'relative(0)')
     assert np.array_equal(r.xz_mask, W.xz_mask)
-t('relative(0) preserves xz_mask', test_relative_0)
 
 def test_ahead_overshift():
     r = W.ahead(100)
     assert_xz_shape(r, 'ahead(100)')
-t('ahead(100) xz_mask shape correct', test_ahead_overshift)
 
 # ── Edge detection ──
 
 def test_rising_edge():
     r = W1.rising_edge()
     assert_xz_shape(r, 'rising_edge')
-t('rising_edge preserves xz_mask', test_rising_edge)
 
 def test_falling_edge():
     r = W1.falling_edge()
     assert_xz_shape(r, 'falling_edge')
-t('falling_edge preserves xz_mask', test_falling_edge)
 
 def test_edge_xz_direction():
     # value=[1,0,1,0], xz=[F,F,T,F]
@@ -236,7 +191,6 @@ def test_edge_xz_direction():
     # edge_xz[3] = xz[2] | xz[3] = T (input to this edge is unreliable)
     assert fe.xz_mask[1] == False, f'cycle 1 should be clean, got {fe.xz_mask[1]}'
     assert fe.xz_mask[3] == True, f'cycle 3 should be contaminated, got {fe.xz_mask[3]}'
-t('falling_edge xz_mask direction correct', test_edge_xz_direction)
 
 # ── Downsample ──
 
@@ -247,7 +201,6 @@ def test_downsample():
     assert len(r.value) == 5
     # chunk [T,F] → any(T,F) = T; chunk [T,F] → T; etc
     assert r.xz_mask[0] == True
-t('downsample preserves xz_mask', test_downsample)
 
 # ── Split / concat ──
 
@@ -255,7 +208,6 @@ def test_split_bits():
     parts = W.split_bits(4)
     for i, p in enumerate(parts):
         assert_xz_shape(p, f'split_bits part {i}')
-t('split_bits preserves xz_mask', test_split_bits)
 
 def test_concatenate():
     a = mkw([0xF, 0xA], w=4, xz=[True, False])
@@ -264,7 +216,6 @@ def test_concatenate():
     assert_xz_shape(r, 'concatenate')
     expected = np.array([True, True])  # OR of masks
     assert np.array_equal(r.xz_mask, expected)
-t('concatenate merges xz_mask', test_concatenate)
 
 def test_merge():
     a = mkw([1, 2, 3], xz=[True, False, False])
@@ -273,7 +224,6 @@ def test_merge():
     assert_xz_shape(r, 'merge')
     expected = np.array([True, False, True])
     assert np.array_equal(r.xz_mask, expected)
-t('merge merges xz_mask', test_merge)
 
 # ═══════════════════════════════════════════════════════════════════════════
 print()
@@ -286,48 +236,73 @@ A = mkw([10, 20, 30], xz=[True, False, False])
 B = mkw([1, 2, 3], xz=[False, False, True])
 EXPECTED_MERGE = np.array([True, False, True])
 
-binary_ops = [
-    ('A + B',  lambda: A + B),
-    ('A - B',  lambda: A - B),
-    ('A * B',  lambda: A * B),
-    ('A & B',  lambda: A & B),
-    ('A | B',  lambda: A | B),
-    ('A ^ B',  lambda: A ^ B),
-    ('A == B', lambda: (A == B)),
-    ('A != B', lambda: (A != B)),
-    ('A << B', lambda: A << B),
-    ('A >> B', lambda: A >> B),
-]
+_BINARY_A = mkw([10, 20, 30], xz=[True, False, False])
+_BINARY_B = mkw([1, 2, 3], xz=[False, False, True])
+_EXPECTED_MERGE = np.array([True, False, True])
 
-for name, fn in binary_ops:
-    def _make_test(name, fn):
-        def _test():
-            r = fn()
-            assert_xz_shape(r, name)
-            assert np.array_equal(r.xz_mask, EXPECTED_MERGE), \
-                f'{name}: xz_mask={r.xz_mask}, expected={EXPECTED_MERGE}'
-        return _test
-    t(f'binary merge: {name}', _make_test(name, fn))
+def test_binary_merge_add():
+    r = _BINARY_A + _BINARY_B
+    assert_xz_shape(r, 'add')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_sub():
+    r = _BINARY_A - _BINARY_B
+    assert_xz_shape(r, 'sub')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_mul():
+    r = _BINARY_A * _BINARY_B
+    assert_xz_shape(r, 'mul')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_and():
+    r = _BINARY_A & _BINARY_B
+    assert_xz_shape(r, 'and')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_or():
+    r = _BINARY_A | _BINARY_B
+    assert_xz_shape(r, 'or')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_xor():
+    r = _BINARY_A ^ _BINARY_B
+    assert_xz_shape(r, 'xor')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_eq():
+    r = (_BINARY_A == _BINARY_B)
+    assert_xz_shape(r, 'eq')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_ne():
+    r = (_BINARY_A != _BINARY_B)
+    assert_xz_shape(r, 'ne')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_lshift():
+    r = _BINARY_A << _BINARY_B
+    assert_xz_shape(r, 'lshift')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
+def test_binary_merge_rshift():
+    r = _BINARY_A >> _BINARY_B
+    assert_xz_shape(r, 'rshift')
+    assert np.array_equal(r.xz_mask, _EXPECTED_MERGE)
 
-# Reverse ops (scalar OP waveform)
-reverse_ops = [
-    ('5 + A',  lambda: 5 + A),
-    ('5 - A',  lambda: 5 - A),
-    ('5 * A',  lambda: 5 * A),
-    ('1 << A', lambda: 1 << A),
-    ('99 >> A', lambda: 99 >> A),
-]
+def test_reverse_op_r_add():
+    r = 5 + _BINARY_A
+    assert_xz_shape(r, 'r_add')
+    assert np.array_equal(r.xz_mask, _BINARY_A.xz_mask)
+def test_reverse_op_r_sub():
+    r = 5 - _BINARY_A
+    assert_xz_shape(r, 'r_sub')
+    assert np.array_equal(r.xz_mask, _BINARY_A.xz_mask)
+def test_reverse_op_r_mul():
+    r = 5 * _BINARY_A
+    assert_xz_shape(r, 'r_mul')
+    assert np.array_equal(r.xz_mask, _BINARY_A.xz_mask)
+def test_reverse_op_r_lshift():
+    r = 1 << _BINARY_A
+    assert_xz_shape(r, 'r_lshift')
+    assert np.array_equal(r.xz_mask, _BINARY_A.xz_mask)
+def test_reverse_op_r_rshift():
+    r = 99 >> _BINARY_A
+    assert_xz_shape(r, 'r_rshift')
+    assert np.array_equal(r.xz_mask, _BINARY_A.xz_mask)
 
-for name, fn in reverse_ops:
-    def _make_rtest(name, fn):
-        def _test():
-            r = fn()
-            assert_xz_shape(r, name)
-            # Scalar has no mask, so result should be A's mask
-            assert np.array_equal(r.xz_mask, A.xz_mask), \
-                f'{name}: xz_mask={r.xz_mask}, expected={A.xz_mask}'
-        return _test
-    t(f'reverse op: {name}', _make_rtest(name, fn))
+
 
 def test_scalar_pow_waveform_rejected():
     a = mkw([1, 2, 3])
@@ -337,22 +312,18 @@ def test_scalar_pow_waveform_rejected():
     except NotImplementedError as e:
         assert 'map' in str(e).lower() or '<<' in str(e)
 
-
 # Reverse ops (Waveform OP Waveform via __r*)
 def test_rpow_merge():
     r = B.__rpow__(A)  # computes A ** B
     assert_xz_shape(r, '__rpow__ merge')
     assert np.array_equal(r.xz_mask, EXPECTED_MERGE), \
         f'__rpow__ merge: got {r.xz_mask}'
-t('__rpow__ Waveform×Waveform merge', test_rpow_merge)
 
 def test_rlshift_merge():
     r = B.__rlshift__(A)  # computes A << B
     assert_xz_shape(r, '__rlshift__ merge')
     assert np.array_equal(r.xz_mask, EXPECTED_MERGE), \
         f'__rlshift__ merge: got {r.xz_mask}'
-t('__rlshift__ Waveform×Waveform merge', test_rlshift_merge)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 print()
@@ -379,7 +350,6 @@ def test_redundant_clock():
         assert list(w.time) == [10, 30], f'expected times [10,30], got {list(w.time)}'
     finally:
         os.unlink(path)
-t('redundant clock assignment: no phantom edge', test_redundant_clock)
 
 def test_clock_starts_high():
     """Clock starts at 1 without prior 0 — should NOT be a posedge."""
@@ -399,7 +369,6 @@ def test_clock_starts_high():
         assert w.time[0] == 10, f'expected posedge at t=10, got t={w.time[0]}'
     finally:
         os.unlink(path)
-t('clock starts high: no false initial posedge', test_clock_starts_high)
 
 def test_clock_xz_no_false_edge():
     """x→1 in clock should NOT be treated as posedge."""
@@ -420,7 +389,6 @@ def test_clock_xz_no_false_edge():
         assert 15 in w.time, f'real posedge at t=15 missing'
     finally:
         os.unlink(path)
-t('clock x→1: no false posedge', test_clock_xz_no_false_edge)
 
 def test_all_xz_clock():
     """All-x/z clock should raise ValueError, not crash."""
@@ -439,7 +407,6 @@ def test_all_xz_clock():
             pass
     finally:
         os.unlink(path)
-t('all x/z clock: raises ValueError', test_all_xz_clock)
 
 def test_multibit_clock_rejected():
     """Multi-bit clock should be rejected."""
@@ -458,8 +425,6 @@ def test_multibit_clock_rejected():
             assert '1-bit' in str(e) or 'width' in str(e)
     finally:
         os.unlink(path)
-t('multi-bit clock: rejected', test_multibit_clock_rejected)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 print()
@@ -493,7 +458,6 @@ def test_signal_after_first_edge():
             )
     finally:
         os.unlink(path)
-t('signal after first edge: no future leak', test_signal_after_first_edge)
 
 def test_subrange_xz_mask():
     """High bits x, low bits clean — subrange mask should not be polluted."""
@@ -518,8 +482,6 @@ def test_subrange_xz_mask():
                 f'Low bits clean but marked x: xz_mask={w.xz_mask}'
     finally:
         os.unlink(path)
-t('subrange xz_mask: high x does not pollute low bits', test_subrange_xz_mask)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 print()
@@ -538,7 +500,6 @@ def test_end_cycle_eq_len():
                             begin_cycle=0, end_cycle=n)
     assert np.array_equal(w_end.value, w_full.value), \
         f'end_cycle={n}: got {len(w_end.value)} samples, expected {n}'
-t('end_cycle == len(edges): no crash, full data', test_end_cycle_eq_len)
 
 def test_negative_begin_cycle():
     """Negative begin_cycle should raise ValueError, not use Python reverse index."""
@@ -548,7 +509,6 @@ def test_negative_begin_cycle():
         raise AssertionError('should have raised ValueError')
     except ValueError:
         pass
-t('begin_cycle=-1: raises ValueError', test_negative_begin_cycle)
 
 def test_begin_gt_end_cycle():
     """begin_cycle > end_cycle should raise ValueError."""
@@ -559,7 +519,6 @@ def test_begin_gt_end_cycle():
         raise AssertionError('should have raised ValueError')
     except ValueError:
         pass
-t('begin_cycle > end_cycle: raises ValueError', test_begin_gt_end_cycle)
 
 def test_slice_none_bounds():
     """wave[:] and wave[7:] should give clear error."""
@@ -572,7 +531,6 @@ def test_slice_none_bounds():
             raise AssertionError(f'{expr} should raise ValueError')
         except (ValueError, TypeError):
             pass
-t('slice with None bounds: clear error', test_slice_none_bounds)
 
 def test_concatenate_empty():
     """concatenate([]) should raise ValueError, not IndexError."""
@@ -583,7 +541,6 @@ def test_concatenate_empty():
         pass
     except IndexError:
         raise AssertionError('got IndexError, should be ValueError')
-t('concatenate([]): ValueError', test_concatenate_empty)
 
 def test_concatenate_diff_length():
     """Different length waveforms should raise ValueError."""
@@ -594,7 +551,6 @@ def test_concatenate_diff_length():
         raise AssertionError('should raise')
     except ValueError:
         pass
-t('concatenate(diff length): ValueError', test_concatenate_diff_length)
 
 def test_concatenate_diff_time():
     a = mkw([1, 2, 3])
@@ -607,7 +563,6 @@ def test_concatenate_diff_time():
         raise AssertionError('should raise ValueError')
     except ValueError:
         pass
-t('concatenate(diff time): ValueError', test_concatenate_diff_time)
 
 def test_merge_empty():
     """merge([]) should raise ValueError, not IndexError."""
@@ -618,7 +573,6 @@ def test_merge_empty():
         pass
     except IndexError:
         raise AssertionError('got IndexError, should be ValueError')
-t('merge([]): ValueError', test_merge_empty)
 
 def test_merge_diff_time():
     a = mkw([1, 2, 3])
@@ -631,7 +585,6 @@ def test_merge_diff_time():
         raise AssertionError('should raise ValueError')
     except ValueError:
         pass
-t('merge(diff time): ValueError', test_merge_diff_time)
 
 def test_empty_signal_match():
     """Wrong signal pattern should raise ValueError, not return {}."""
@@ -641,8 +594,6 @@ def test_empty_signal_match():
         raise AssertionError('should raise')
     except ValueError:
         pass
-t('load_matched_waveforms no match: ValueError', test_empty_signal_match)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 print()
@@ -666,7 +617,6 @@ def test_invert_wide():
             f'~0 for 128-bit: got {r.value[0]}, expected {expected_0}'
     except OverflowError as e:
         raise AssertionError(f'>64 bit invert overflows: {e}')
-t('__invert__ >64 bit: no overflow', test_invert_wide)
 
 def test_rlshift_width():
     """1 << wave: result width should accommodate the largest possible shift."""
@@ -677,8 +627,6 @@ def test_rlshift_width():
     if r.width is not None:
         assert r.width > 4, \
             f'1 << 4-bit wave: result width={r.width}, too narrow for 1<<15'
-t('__rlshift__ width: accommodates max shift', test_rlshift_width)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 print()
@@ -697,7 +645,6 @@ def test_scope_parent():
             assert '.' in fn, f'full_name()={fn}, should include parent'
             break
         break
-t('scope parent_scope set on children', test_scope_parent)
 
 def test_find_scope_depth0():
     """depth=0 should only check self, not recurse."""
@@ -706,7 +653,6 @@ def test_find_scope_depth0():
     # top.name is 'tb', not 'u0'
     res = top.find_scope_by_module('u0', depth=0)
     assert len(res) == 0, f'depth=0 from tb: found {len(res)}, expected 0'
-t('find_scope_by_module depth=0: no recursion', test_find_scope_depth0)
 
 def test_find_scope_depth1():
     """depth=1 should find direct children."""
@@ -714,8 +660,6 @@ def test_find_scope_depth1():
     top = r.top_scope_list()[0]
     res = top.find_scope_by_module('u0', depth=1)
     assert len(res) == 1, f'depth=1 from tb: found {len(res)}, expected 1'
-t('find_scope_by_module depth=1: finds child', test_find_scope_depth1)
-
 
 print()
 print('=' * 60)
@@ -741,7 +685,6 @@ def test_real_signal_guard():
             raise AssertionError('got ValueError instead of NotImplementedError')
     finally:
         os.unlink(path)
-t('real signal: NotImplementedError', test_real_signal_guard)
 
 def test_empty_time_window():
     """time window past the last clock edge should not IndexError."""
@@ -751,7 +694,6 @@ def test_empty_time_window():
         assert len(w.value) >= 0
     except IndexError:
         raise AssertionError('got IndexError on empty window')
-t('empty time window: no IndexError', test_empty_time_window)
 
 def test_signed_twos_complement():
     """signed=True interprets 4-bit 1111 as -1, not 15."""
@@ -769,7 +711,6 @@ def test_signed_twos_complement():
         assert w.value[0] == -1, f'signed 1111 expected -1, got {w.value[0]}'
     finally:
         os.unlink(path)
-t('signed=True: two-complement interpretation', test_signed_twos_complement)
 
 def test_stub_nameerror():
     """FstReader/FsdbReader stubs should raise RuntimeError, not NameError."""
@@ -782,8 +723,6 @@ def test_stub_nameerror():
             pass
         except NameError as e:
             raise AssertionError(f'{name} stub got NameError: {e}')
-t('stub readers: RuntimeError not NameError', test_stub_nameerror)
-
 
 print()
 print('=' * 60)
@@ -801,7 +740,6 @@ def test_split_bits_padding_width():
     parts = w.split_bits(4, padding=True)
     widths = [p.width for p in parts]
     assert widths == [4, 4, 2], f'expected [4,4,2], got {widths}'
-t('split_bits padding: correct widths', test_split_bits_padding_width)
 
 def test_unsigned_width64():
     """as_unsigned() on width==64 signed int should not overflow."""
@@ -816,7 +754,6 @@ def test_unsigned_width64():
         assert u.value[0] == (1 << 64) - 5
     except OverflowError as e:
         raise AssertionError(f'as_unsigned width=64 overflow: {e}')
-t('as_unsigned width=64: no overflow', test_unsigned_width64)
 
 def test_signed_width64():
     """as_signed() on width==64 uint should not overflow."""
@@ -834,8 +771,6 @@ def test_signed_width64():
         assert s.value[2] == -1
     except OverflowError as e:
         raise AssertionError(f'as_signed width=64 overflow: {e}')
-t('as_signed width=64: correct two-complement', test_signed_width64)
-
 
 print()
 print('=' * 60)
@@ -856,7 +791,6 @@ def test_alignment_check():
         raise AssertionError('should have raised')
     except ValueError:
         pass
-t('binary op: misaligned clock raises ValueError', test_alignment_check)
 
 def test_alignment_same_ok():
     """Aligned waveforms should work fine."""
@@ -864,7 +798,6 @@ def test_alignment_same_ok():
     b = mkw([4, 5, 6])
     c = a + b
     assert len(c.value) == 3
-t('binary op: aligned waveforms ok', test_alignment_same_ok)
 
 def test_xz_mask_fst_not_impl():
     """xz_mask=True on FST should raise NotImplementedError (not silently ignore)."""
@@ -876,7 +809,6 @@ def test_xz_mask_fst_not_impl():
         pass
     except ImportError:
         pass
-t('FST xz_mask: NotImplementedError path exists', test_xz_mask_fst_not_impl)
 
 def test_concatenate_merge_alignment_consistent():
     """concatenate and merge alignment checks are consistent with binary ops."""
@@ -892,19 +824,29 @@ def test_concatenate_merge_alignment_consistent():
         raise AssertionError('concatenate should raise on time mismatch')
     except ValueError:
         pass
-t('concatenate: rejects time misalignment', test_concatenate_merge_alignment_consistent)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 if __name__ == '__main__':
+    import sys, traceback
+    PASSED = []
+    FAILED = []
+    for name in sorted(globals()):
+        if name.startswith('test_') and callable(globals()[name]):
+            try:
+                globals()[name]()
+                PASSED.append(name)
+                print(f'  PASS  {name}')
+            except Exception as e:
+                FAILED.append((name, str(e)))
+                print(f'  FAIL  {name}: {e}')
+                traceback.print_exc()
     print()
     print('=' * 60)
     total = len(PASSED) + len(FAILED)
     print(f'Results: {len(PASSED)}/{total} passed')
-    if FAILED:
-        print(f'\nFAILURES ({len(FAILED)}):')
-        for name, err in FAILED:
-            print(f'  - {name}: {err}')
+    for name, err in FAILED:
+        print(f'  - {name}: {err}')
     print('=' * 60)
     sys.exit(0 if not FAILED else 1)
+
 
