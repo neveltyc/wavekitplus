@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.9.6 - 2026-05-27
+
+### Changed
+- (wave(N) << wave(M)).width: was rejected (width mismatch), now returns N + (2^M - 1)
+  This is a semantic enhancement — mixed-width shift is legal hardware behavior.
+- _lshift/_rshift: mixed signed/unsigned dtype now raises ValueError with remediation
+  guidance instead of raw NumPy TypeError
+
+### Fixed
+- Shift ops no longer require equal operand widths (removed _infer_logical_op_width)
+
 ## v0.9.5 - 2026-05-27
 
 ### Changed
