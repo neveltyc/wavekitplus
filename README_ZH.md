@@ -2,7 +2,7 @@
   <h1 align="center">wavekit-plus</h1>
   <p align="center">
     把仿真波形变成 NumPy 数组。<br>
-    测量延迟、检查协议、定位时序 bug — 用 Python 脚本，而不是在波形查看器里手动翻。
+    测量延迟、检查协议、定位时序 bug &mdash; 用 Python 脚本，而不是在波形查看器里手动翻。
   </p>
 </p>
 
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <b>Fork 自 <a href="https://github.com/cxzzzz/wavekit">cxzzzz/wavekit</a></b> —
+  <b>Fork 自 <a href="https://github.com/cxzzzz/wavekit">cxzzzz/wavekit</a></b> &mdash;
   用流式 IEEE 兼容 VCD 解析器替换了原有的 vcdvcd。
 </p>
 
@@ -22,7 +22,7 @@
 
 ## 这是什么？
 
-你用 Verilator / Icarus / QuestaSim / VCS 跑 RTL 仿真，生成了一个 `.vcd` 文件——
+你用 Verilator / Icarus / QuestaSim / VCS 跑 RTL 仿真，生成了一个 `.vcd` 文件&mdash;&mdash;
 里面记录了每个信号在每个时刻的值变化。通常你会打开 GTKWave 或 Verdi，缩放、肉眼读数、手动量时间。
 
 **wavekit-plus** 把这个 `.vcd` 加载成 Python 里的 NumPy 数组，让你写脚本来回答这些问题：
@@ -32,7 +32,7 @@
 - "在 100 ns 到 500 ns 之间，`state` 出现过几次 `x` 或 `z`？"
 - "端口 A 和端口 B 的写数据有没有在同一周期发生过碰撞？"
 
-也支持 FST 格式（Verilator 快照）和 FSDB 格式（Verdi），并内置了一个模式匹配引擎——
+也支持 FST 格式（Verilator 快照）和 FSDB 格式（Verdi），并内置了一个模式匹配引擎&mdash;&mdash;
 描述一段时序序列（握手、突发、stall），引擎单次扫描就能找出所有匹配实例。
 
 ## 为什么 Fork？
@@ -42,10 +42,10 @@
 
 **本 Fork** 用 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9 的流式解析器替换了它，外加：
 
-- **信号缓存** — 每个信号只从文件读一次，重复使用
-- **4-state 掩码** — `xz_mask=True` 标记每个周期是否有 x 或 z
-- **输入防御** — 16 项资源上限抵御恶意/畸形 VCD
-- **许可证澄清** — MIT + BSD (NumPy)，没有 GPL 或 Artistic 条款
+- **信号缓存** &mdash; 每个信号只从文件读一次，重复使用
+- **4-state 掩码** &mdash; `xz_mask=True` 标记每个周期是否有 x 或 z
+- **输入防御** &mdash; 16 项资源上限抵御恶意/畸形 VCD
+- **许可证澄清** &mdash; MIT + BSD (NumPy)，没有 GPL 或 Artistic 条款
 
 核心 wavekit 使用流程保持向后兼容；本 fork 的新增能力通过可选参数和辅助方法提供。
 
@@ -119,7 +119,7 @@ with VcdReader("axi_tb.vcd") as r:
 | 方法 | 说明 |
 |:-----|:-----|
 | `VcdReader(file)` | 打开 VCD 文件 |
-| `load_waveform(signal, clock, ...)` | 加载单个信号 → `Waveform` |
+| `load_waveform(signal, clock, ...)` | 加载单个信号 &rarr; `Waveform` |
 | `load_matched_waveforms(pattern, clock_pattern, ...)` | 按大括号/正则批量加载 |
 | `eval(expr, clock)` | 对包含信号路径的表达式求值 |
 | `get_matched_signals(pattern)` | 解析模式为 `Signal` 对象 |
@@ -150,12 +150,12 @@ with VcdReader("axi_tb.vcd") as r:
 | `.wait(cond)` | 阻塞等待条件为真 |
 | `.delay(n)` | 前进 n 个周期 |
 | `.capture(name, signal)` | 记录信号值 |
-| `.require(cond)` | 断言条件（失败 → `REQUIRE_VIOLATED`） |
+| `.require(cond)` | 断言条件（失败 &rarr; `REQUIRE_VIOLATED`） |
 | `.loop(body, until=|when=)` | 循环直到/当条件满足 |
 | `.repeat(body, n)` | 重复 n 次 |
 | `.branch(cond, T, F)` | 条件分支 |
 | `.timeout(max)` | 超时标记 `TIMEOUT` |
-| `.match()` | 运行引擎 → `MatchResult`（`.start` `.end` `.duration` `.captures` `.filter_valid()`） |
+| `.match()` | 运行引擎 &rarr; `MatchResult`（`.start` `.end` `.duration` `.captures` `.filter_valid()`） |
 
 ## 版本历史
 
@@ -198,7 +198,7 @@ git push origin main --follow-tags
 
 ## 许可证
 
-MIT — 详见 [LICENSE](LICENSE)。
+MIT &mdash; 详见 [LICENSE](LICENSE)。
 
 内嵌的 VCD 解析器 (`src/wavekit/readers/vcd/vcd_parser.py`) 改编自
 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9，同为 MIT 许可。

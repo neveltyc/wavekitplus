@@ -48,7 +48,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 - (wave(N) << wave(M)).width: was rejected (width mismatch), now returns N + (2^M - 1)
-  This is a semantic enhancement — mixed-width shift is legal hardware behavior.
+  This is a semantic enhancement --- mixed-width shift is legal hardware behavior.
 - _lshift/_rshift: mixed signed/unsigned dtype now raises ValueError with remediation
   guidance instead of raw NumPy TypeError
 
@@ -89,7 +89,7 @@ All notable changes to this project are documented in this file.
 ### Added
 - test_scalar_pow_waveform_rejected (explicit NotImplementedError check)
 - test_shift_matrix.py parameterized skeleton (skip, v0.10 prep)
-- README: API notes — scalar**wave, unsigned subtraction wraparound, bitwise signedness
+- README: API notes --- scalar**wave, unsigned subtraction wraparound, bitwise signedness
 
 ## v0.9.2 - 2026-05-26
 
@@ -124,15 +124,15 @@ All notable changes to this project are documented in this file.
 ## v0.9.0 - 2026-05-26
 
 ### Changed
-- **Binary ops refactored** — non-shift binary operators use the _binary_op
+- **Binary ops refactored** --- non-shift binary operators use the _binary_op
   factory and _check_binary_compat. Shift operators keep specialized paths but
   share the same compatibility checks where applicable.
-- **Reader finalize unified** — _finalize_loaded_waveform() shared by VCD/FST/FSDB.
+- **Reader finalize unified** --- _finalize_loaded_waveform() shared by VCD/FST/FSDB.
   Always loads unsigned first, slices, then converts to signed. Ensures name
   and signal metadata consistency across all three backends.
-- **__sub__ width** — restores upstream behavior: subtraction does not increase
+- **__sub__ width** --- restores upstream behavior: subtraction does not increase
   bit width. __add__ width=max+1 behavior retained.
-- Exception type standardized — edge ops use ValueError not bare Exception.
+- Exception type standardized --- edge ops use ValueError not bare Exception.
 
 ### Fixed
 - unsigned subrange name was empty (now set via shared finalize)
@@ -159,7 +159,7 @@ All notable changes to this project are documented in this file.
 - test_examples: skip condition checks make + iverilog + vvp
 - root_scope: single-element patterns match signals relative to scope
 - VCD: scope tree built from all alias scopes, signal_list includes all aliases
-- pytest: external deps (make, iverilog, pylibfst) correctly skipped — 140 passed, 4 skipped
+- pytest: external deps (make, iverilog, pylibfst) correctly skipped --- 140 passed, 4 skipped
 
 ## v0.8.14 - 2026-05-26
 
@@ -203,7 +203,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 - pyproject.toml version sync (was stuck at 0.8.6 across multiple releases)
-- module pattern now uses depth=-1 (unlimited recursion) — matches documented semantics
+- module pattern now uses depth=-1 (unlimited recursion) --- matches documented semantics
 - as_signed() handles >64-bit object-dtype waveforms without overflow
 - value_change_to_value_array() guards against future-value leak at clock edges before first signal change
 - __rrshift__ width metadata for scalar >> wave now uses max(other.bit_length(), self.width)

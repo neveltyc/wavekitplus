@@ -2,7 +2,7 @@
   <h1 align="center">wavekit-plus</h1>
   <p align="center">
     Turn simulation waveforms into NumPy arrays.<br>
-    Measure latency, check protocols, find timing bugs — in Python, not in a waveform viewer.
+    Measure latency, check protocols, find timing bugs &mdash; in Python, not in a waveform viewer.
   </p>
 </p>
 
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <b>Forked from <a href="https://github.com/cxzzzz/wavekit">cxzzzz/wavekit</a></b> —
+  <b>Forked from <a href="https://github.com/cxzzzz/wavekit">cxzzzz/wavekit</a></b> &mdash;
   replacing vcdvcd with a streaming, IEEE-compliant VCD parser.
 </p>
 
@@ -23,7 +23,7 @@
 ## What is this?
 
 You run an RTL simulation (Verilator, Icarus, QuestaSim, VCS) and it produces a `.vcd`
-file — a recording of every signal change over time. Normally you open this in GTKWave
+file &mdash; a recording of every signal change over time. Normally you open this in GTKWave
 or Verdi, zoom in, squint at values, and manually measure things.
 
 **wavekit-plus** loads that `.vcd` into Python as NumPy arrays, so you can write scripts
@@ -35,7 +35,7 @@ to answer questions like:
 - "Does the write data on port A ever collide with port B on the same cycle?"
 
 It also reads FST (fast Verilator traces) and FSDB (Verdi), and includes a pattern
-matching engine that finds temporal sequences — handshakes, bursts, stalls — in a
+matching engine that finds temporal sequences &mdash; handshakes, bursts, stalls &mdash; in a
 single pass over the data.
 
 ## Why this fork?
@@ -47,10 +47,10 @@ GPL v1 license terms.
 **This fork** replaces it with the streaming parser from
 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9, plus:
 
-- **Signal cache** — each signal's value changes are read once and reused
-- **4-state masking** — `xz_mask=True` tags every cycle where x or z appeared
-- **Input hardening** — 16 resource caps against pathological VCDs
-- **License clarity** — MIT + BSD (NumPy), no GPL or Artistic terms
+- **Signal cache** &mdash; each signal's value changes are read once and reused
+- **4-state masking** &mdash; `xz_mask=True` tags every cycle where x or z appeared
+- **Input hardening** &mdash; 16 resource caps against pathological VCDs
+- **License clarity** &mdash; MIT + BSD (NumPy), no GPL or Artistic terms
 
 The core wavekit workflow remains backward compatible; new fork-specific features
 are exposed as optional parameters and helpers.
@@ -126,7 +126,7 @@ with VcdReader("axi_tb.vcd") as r:
 | Method | Description |
 |:-------|:------------|
 | `VcdReader(file)` | Open a VCD file |
-| `load_waveform(signal, clock, ...)` | Load one signal → `Waveform` |
+| `load_waveform(signal, clock, ...)` | Load one signal &rarr; `Waveform` |
 | `load_matched_waveforms(pattern, clock_pattern, ...)` | Batch-load via brace/regex |
 | `eval(expr, clock)` | Evaluate an expression with embedded signal paths |
 | `get_matched_signals(pattern)` | Resolve a pattern to `Signal` objects |
@@ -157,12 +157,12 @@ Describe a temporal sequence; the NFA engine finds all matches in one pass.
 | `.wait(cond)` | Block until condition is true |
 | `.delay(n)` | Advance n cycles |
 | `.capture(name, signal)` | Record signal value |
-| `.require(cond)` | Assert condition (fail → `REQUIRE_VIOLATED`) |
+| `.require(cond)` | Assert condition (fail &rarr; `REQUIRE_VIOLATED`) |
 | `.loop(body, until=\|when=)` | Repeat until/when condition |
 | `.repeat(body, n)` | Execute body n times |
 | `.branch(cond, T, F)` | Conditional branch |
 | `.timeout(max)` | Mark unfinished as `TIMEOUT` |
-| `.match()` | Run engine → `MatchResult` (`.start`, `.end`, `.duration`, `.captures`, `.filter_valid()`) |
+| `.match()` | Run engine &rarr; `MatchResult` (`.start`, `.end`, `.duration`, `.captures`, `.filter_valid()`) |
 
 ## API notes
 
@@ -221,7 +221,7 @@ git push origin main --follow-tags
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT &mdash; see [LICENSE](LICENSE).
 
 The embedded VCD parser (`src/wavekit/readers/vcd/vcd_parser.py`) is adapted from
 [VCD_ANALYZER](https://github.com/neveltyc/VCD_ANALYZER) v1.3.9, also MIT.

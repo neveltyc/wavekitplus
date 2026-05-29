@@ -1,0 +1,28 @@
+# Normalize line endings to LF for all text files
+* text=auto
+
+# Markdown and documentation
+*.md text eol=lf
+*.rst text eol=lf
+LICENSE text eol=lf
+
+# Python source
+*.py text eol=lf
+*.pyx text eol=lf
+*.pxd text eol=lf
+
+# TOML config
+*.toml text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+*.ps1 text eol=lf
+
+# Binary / generated
+*.vcd binary
+*.vvp binary
+*.png binary
+*.jpg binary
+*.so binary
+*.pyd binary
+
