@@ -2,6 +2,57 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased - upstream sync
+
+Selective sync from upstream [cxzzzz/wavekit](https://github.com/cxzzzz/wavekit)
+(fork base was upstream v0.6.1; synced up to upstream `fce7c62`, 2026-06).
+Upstream PR / commit references below point at the upstream repository.
+
+### Added
+- **Programmable Pattern API** (upstream PR #17): pass an async handler to
+  `Pattern(handler)` for dynamic branches, per-ID routing, and row-oriented
+  records via `Pattern(...).collect()`; declarative and programmable styles
+  share one runtime (`pattern/compiler.py`, `pattern/runtime.py`,
+  `pattern/errors.py` replace `pattern/engine.py` + `pattern/instance.py`)
+- `Pattern.consume(cond, channel)` declarative step: FIFO-arbitrated event
+  consumption (upstream 13396a7)
+- `MatchResult` status filters `filter_ok()` / `filter_failed()` /
+  `filter_status()` and `ok` / `failed` masks (upstream ec02e2b)
+- CI workflow `.github/workflows/python-package.yml` (adapted from upstream:
+  Python 3.9-3.13 matrix, ruff lint + format check, mypy, pytest,
+  `tests/run_tests.py`, iverilog; PyPI publish jobs intentionally omitted)
+- FSDB: `xz_mask=True` support in `load_waveform` (was NotImplementedError),
+  built on upstream's `FsdbDecodeMode` per-bit X/Z mask decode (upstream 6d7841a);
+  range-aware, mirroring the VCD reader implementation
+- FSDB: clock edges contaminated by x/z are now excluded, matching VCD behavior
+
+### Changed
+- Pattern API breaks that ride along with the upstream runtime unification:
+  `MatchResult.filter_valid()` / `.valid` renamed to `filter_ok()` / `.ok`;
+  `wait(tick=...)` removed (use `consume()` for consuming semantics, upstream
+  e95fc10); `.timeout(n)` deprecated in favor of `Pattern(timeout=n)`
+- FSDB NPI layer synced with upstream `255b0c9`: `load_value_change` replaced
+  by `load_value_change_mode(signal, begin, end, mode, decode_width)`;
+  composite signal width is now computed reader-side in Python
+  (`_npi_signal_width`, recursive member sum) instead of inside the Cython
+  extension (upstream ab4c938)
+- Repo-wide `ruff check --fix` + `ruff format` cleanup so the new CI lint
+  gates pass; mypy pinned to `>=1.11.2,<2.0` (mypy 2.x dropped the
+  `python_version = "3.9"` target)
+- `typing-extensions` added as a runtime dependency (used by the synced
+  pattern runtime on Python < 3.10)
+
+### Fixed
+- FSDB: `NpiFsdbReader.get_signal` raises `ValueError` for missing signals
+  instead of failing an `assert` (upstream fce7c62)
+- FSDB: `NpiFsdbSignal.range()` returns real non-zero bit ranges instead of
+  always `None` (upstream fce7c62)
+- FSDB: unknown characters in NPI value strings raise `ValueError` during
+  decode instead of being silently ignored (upstream 6d7841a)
+- Removed dead `VCDParser.match()` method that referenced two undefined
+  helper functions (latent `NameError` if ever called)
+- `FstReader`: guard against `None` clock width when selecting clock edges
+
 ## v0.9.8 - 2026-05-27
 
 ### Fixed
