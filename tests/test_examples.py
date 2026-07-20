@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-
 pytestmark = pytest.mark.skipif(
     shutil.which('iverilog') is None or shutil.which('vvp') is None,
     reason='iverilog or vvp not installed',
@@ -30,7 +29,12 @@ def _make_env(project_root):
 
 def _run_cmd(cmd, cwd, env):
     result = subprocess.run(
-        cmd, cwd=str(cwd), env=env, capture_output=True, text=True, shell=False,
+        cmd,
+        cwd=str(cwd),
+        env=env,
+        capture_output=True,
+        text=True,
+        shell=False,
     )
     if result.returncode != 0:
         pytest.fail(

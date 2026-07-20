@@ -2,8 +2,9 @@
 
 import numpy as np
 import pytest
-from wavekit.waveform import Waveform
+
 from wavekit.signal import Signal
+from wavekit.waveform import Waveform
 
 
 def _mk(values, width=8, signed=False):
@@ -17,21 +18,28 @@ def _mk(values, width=8, signed=False):
 
 # ── value correctness ──
 
-@pytest.mark.parametrize('vals,shift,expected', [
-    ([1, 2, 4], 1, [2, 4, 8]),
-    ([0xFF], 4, [0xFF0]),
-    ([1], 63, [1 << 63]),
-])
+
+@pytest.mark.parametrize(
+    'vals,shift,expected',
+    [
+        ([1, 2, 4], 1, [2, 4, 8]),
+        ([0xFF], 4, [0xFF0]),
+        ([1], 63, [1 << 63]),
+    ],
+)
 def test_lshift_scalar(vals, shift, expected):
     w = _mk(vals, width=64)
     r = w << shift
     assert [int(v) for v in r.value] == expected
 
 
-@pytest.mark.parametrize('vals,shift,expected', [
-    ([8, 16, 32], 1, [4, 8, 16]),
-    ([0xFF00], 4, [0xFF0]),
-])
+@pytest.mark.parametrize(
+    'vals,shift,expected',
+    [
+        ([8, 16, 32], 1, [4, 8, 16]),
+        ([0xFF00], 4, [0xFF0]),
+    ],
+)
 def test_rshift_scalar(vals, shift, expected):
     w = _mk(vals, width=16)
     r = w >> shift
@@ -39,6 +47,7 @@ def test_rshift_scalar(vals, shift, expected):
 
 
 # ── width > 64 dtype upgrade ──
+
 
 def test_lshift_above_64_bits():
     w = _mk([1, 2], width=8)
@@ -62,6 +71,7 @@ def test_rrshift_scalar_no_widening():
 
 # ── alignment check ──
 
+
 @pytest.mark.parametrize('op_name', ['__lshift__', '__rshift__', '__rlshift__', '__rrshift__'])
 def test_shift_rejects_misaligned(op_name):
     w1 = _mk([1, 2], width=8)
@@ -80,6 +90,7 @@ def test_shift_rejects_misaligned(op_name):
 
 # ── xz_mask propagation ──
 
+
 def test_lshift_xz_mask_merge():
     a = _mk([1, 2, 3])
     a.xz_mask = np.array([True, False, False])
@@ -92,6 +103,7 @@ def test_lshift_xz_mask_merge():
 
 # ── reverse op argument order ──
 
+
 def test_rlshift_argument_order():
     w = _mk([0, 1, 2], width=4)
     r = 1 << w
@@ -100,12 +112,14 @@ def test_rlshift_argument_order():
 
 # -- mixed width shift --
 
+
 def test_lshift_mixed_width():
     data = _mk([1, 2, 4], width=8)
     shift_amt = _mk([1, 2, 3], width=3)
     r = data << shift_amt
     assert [int(v) for v in r.value] == [2, 8, 32]
     assert r.width == 15
+
 
 def test_rshift_mixed_width():
     data = _mk([16, 32, 64], width=8)
@@ -114,13 +128,16 @@ def test_rshift_mixed_width():
     assert [int(v) for v in r.value] == [8, 8, 8]
     assert r.width == 8
 
+
 def test_rlshift_mixed_width():
     shift_amt = _mk([1, 2, 3], width=3)
     data = _mk([1, 2, 4], width=8)
     r = data << shift_amt
     assert [int(v) for v in r.value] == [2, 8, 32]
 
+
 # -- signed/unsigned error message --
+
 
 def test_lshift_typeerror_message():
     a = _mk([1, 2], width=4, signed=True)

@@ -7,7 +7,13 @@ from typing import Any, Literal
 
 import numpy as np
 
-from ..scope import Scope, match_scopes, match_scopes_relative, match_signals, match_signals_relative
+from ..scope import (
+    Scope,
+    match_scopes,
+    match_scopes_relative,
+    match_signals,
+    match_signals_relative,
+)
 from ..signal import Signal
 from ..waveform import Waveform
 from .expr_parser import extract_wave_paths
@@ -330,7 +336,7 @@ class Reader:
             common_keys = set(dict1.keys()).intersection(dict2.keys())
             if common_keys:
                 raise ValueError(
-                    'found more than one scope with the same keys: ' f'keys:{list(common_keys)}'
+                    f'found more than one scope with the same keys: keys:{list(common_keys)}'
                 )
             return {**dict1, **dict2}
 
@@ -589,4 +595,3 @@ class Reader:
 
         else:
             raise ValueError(f"unknown mode '{mode}', expected 'single' or 'zip'")
-

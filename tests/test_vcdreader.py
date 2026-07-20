@@ -517,6 +517,7 @@ def test_global_get_matched_signals_subrange_width(vcd_path):
     assert sig.full_name == 'tb.u0.J_state[3:0]'
     assert sig.width == 4
 
+
 def test_root_scope_and_global_consistent(vcd_path):
     r = VcdReader(str(vcd_path))
     tb = r.top_scope_list()[0]

@@ -10,9 +10,9 @@ from ...scope import Scope
 from ...signal import Signal
 from ...waveform import Waveform
 from ..base import Reader
+from ..edge_detect import select_clock_edges
 from ..pattern_parser import split_by_range_expr
 from .vcd_parser import VCDParser
-from ..edge_detect import select_clock_edges
 
 
 class VcdScope(Scope):
@@ -23,7 +23,7 @@ class VcdScope(Scope):
         name: str,
         full_path: str,
         parser: VCDParser,
-        reader: 'VcdReader',
+        reader: VcdReader,
     ):
         super().__init__(name=name)
         self._full_path = full_path
@@ -34,7 +34,7 @@ class VcdScope(Scope):
     def signal_list(self) -> Sequence[Signal]:
         signals: list[Signal] = []
         seen: set[str] = set()
-        for sid, info in self._parser.signals.items():
+        for _sid, info in self._parser.signals.items():
             for alias in info.get('aliases', [info['path']]):
                 if alias in seen:
                     continue
@@ -60,10 +60,10 @@ class VcdScope(Scope):
         """Find all direct child scopes under this scope's full_path."""
         prefix = self._full_path + '.' if self._full_path else ''
         children: set[str] = set()
-        for sid, info in self._parser.signals.items():
+        for _sid, info in self._parser.signals.items():
             for scope in info.get('scopes', [info.get('scope', '')]):
                 if scope and scope.startswith(prefix):
-                    remainder = scope[len(prefix):]
+                    remainder = scope[len(prefix) :]
                     child_name = remainder.split('.')[0]
                     children.add(child_name)
         result: list[VcdScope] = []
@@ -91,7 +91,6 @@ class VcdScope(Scope):
         return results
 
 
-
 def _has_xz_in_range(value_str: str, lo: int, hi: int) -> bool:
     """Check if a 4-state value string has x/z in bit range [lo, hi]."""
     if lo > hi:
@@ -105,20 +104,21 @@ def _has_xz_in_range(value_str: str, lo: int, hi: int) -> bool:
             return True
     return False
 
+
 class VcdReader(Reader):
     def __init__(self, file: str):
         super().__init__()
         self.file = file
         self._parser = VCDParser(file)
 
-       # Cache time range to avoid re-scanning the file
+        # Cache time range to avoid re-scanning the file
         self._time_range = self._parser.scan_time_range()
         # Cache per-signal value-change lists to avoid re-scanning on reloads
         self._tv_cache: dict[str, list[tuple[int, str]]] = {}
 
         # Build top-level scopes from all signal aliases
         top_scopes: set[str] = set()
-        for sid, info in self._parser.signals.items():
+        for _sid, info in self._parser.signals.items():
             for scope in info.get('scopes', [info.get('scope', '')]):
                 if scope:
                     top_scopes.add(scope.split('.')[0])
@@ -264,21 +264,14 @@ class VcdReader(Reader):
         if end_cycle is not None:
             if not (0 <= end_cycle <= len(clock_edge_times)):
                 raise ValueError(
-                    f'end_cycle={end_cycle} out of range '
-                    f'(clock has {len(clock_edge_times)} edges)'
+                    f'end_cycle={end_cycle} out of range (clock has {len(clock_edge_times)} edges)'
                 )
             if end_cycle == len(clock_edge_times):
                 pass  # no upper bound, sample to end
             else:
                 end_time = int(clock_edge_times[end_cycle])
-        if (
-            begin_cycle is not None
-            and end_cycle is not None
-            and begin_cycle >= end_cycle
-        ):
-            raise ValueError(
-                f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}'
-            )
+        if begin_cycle is not None and end_cycle is not None and begin_cycle >= end_cycle:
+            raise ValueError(f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}')
 
         # Compute clock_offset = number of sampling edges before begin_time
         begin_time_actual = begin_time if begin_time is not None else 0
@@ -321,9 +314,9 @@ class VcdReader(Reader):
                 if m:
                     hi = int(m.group(1))
                     lo = int(m.group(2)) if m.group(2) is not None else hi
-                    xz_flags = np.array([
-                        _has_xz_in_range(v[1], lo, hi) for v in signal_tv
-                    ], dtype=np.bool_)
+                    xz_flags = np.array(
+                        [_has_xz_in_range(v[1], lo, hi) for v in signal_tv], dtype=np.bool_
+                    )
                 else:
                     xz_flags = np.array(
                         [bool(re.search(r'[xXzZ]', v[1])) for v in signal_tv],
@@ -338,10 +331,13 @@ class VcdReader(Reader):
             xz_vc[:, 0] = np.array([v[0] for v in signal_tv], dtype=np.uint64)
             xz_vc[:, 1] = xz_flags.astype(np.uint64)
             xz_wave = self.value_change_to_waveform(
-                xz_vc, clock_value_change,
-                width=1, signed=False,
+                xz_vc,
+                clock_value_change,
+                width=1,
+                signed=False,
                 sample_on_posedge=sample_on_posedge,
-                signal='_xz_mask', clock_offset=clock_offset,
+                signal='_xz_mask',
+                clock_offset=clock_offset,
             )
             full_wave.xz_mask = xz_wave.value.astype(np.bool_)
 
