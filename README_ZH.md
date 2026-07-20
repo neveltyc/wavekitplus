@@ -100,16 +100,16 @@ with VcdReader("axi_tb.vcd") as r:
     rdata   = r.load_waveform("tb.dut.rdata[31:0]", clock=clk)
 
     result = (
-        Pattern()
+        Pattern(timeout=256)
         .wait(arvalid & arready)   # AR 握手
         .wait(rvalid & rready)     # R 握手
         .capture("rdata", rdata)
-        .timeout(256)
         .match()
     )
 
-    for m in result.filter_valid():
-        print(f"延迟: {m.duration.value} 周期, 数据: {m.captures['rdata'].value}")
+    ok = result.filter_ok()
+    print(f"延迟（周期）: {ok.duration.value}")
+    print(f"读数据: {ok.captures['rdata'].value}")
 ```
 
 ## 核心 API
@@ -143,19 +143,44 @@ with VcdReader("axi_tb.vcd") as r:
 
 ### Pattern 模式匹配
 
-描述一段时序序列，NFA 引擎单次扫描找出所有匹配。
+描述一段时序序列，引擎单次扫描找出所有匹配。
+两种写法共享同一个运行时：
+
+- **声明式** &mdash; 链式调用 `.wait()`、`.consume()`、`.capture()`、`.loop()` 等步骤，适合固定形态的事务流。
+- **可编程式** &mdash; 向 `Pattern(handler)` 传入 async 处理函数，适合动态分支、按 ID 路由等复杂流程。
 
 | 步骤 | 说明 |
 |:-----|:-----|
-| `.wait(cond)` | 阻塞等待条件为真 |
+| `.wait(cond)` | 观察等待条件为真（非消费型） |
+| `.consume(cond, channel)` | 等待并原子消费一个通道事件（FIFO 仲裁） |
 | `.delay(n)` | 前进 n 个周期 |
 | `.capture(name, signal)` | 记录信号值 |
 | `.require(cond)` | 断言条件（失败 &rarr; `REQUIRE_VIOLATED`） |
 | `.loop(body, until=|when=)` | 循环直到/当条件满足 |
 | `.repeat(body, n)` | 重复 n 次 |
 | `.branch(cond, T, F)` | 条件分支 |
-| `.timeout(max)` | 超时标记 `TIMEOUT` |
-| `.match()` | 运行引擎 &rarr; `MatchResult`（`.start` `.end` `.duration` `.captures` `.filter_valid()`） |
+| `Pattern(timeout=max)` | 超时标记 `TIMEOUT`（`.timeout(max)` 已弃用） |
+| `.match()` | 运行引擎 &rarr; `MatchResult`（`.start` `.end` `.duration` `.status` `.captures` `.filter_ok()` `.filter_failed()` `.filter_status(s)`） |
+| `.collect()` | 仅可编程式：收集处理函数的非 `None` 返回值为列表 |
+
+**可编程式示例** &mdash; 按 ID 匹配乱序响应：
+
+```python
+arfire = arvalid & arready   # 固定表达式在处理函数外预计算
+rfire = rvalid & rready
+
+async def read_txn(ctx):
+    if ctx.value(arfire):
+        my_id = ctx.value(arid)
+        await ctx.consume(
+            lambda: ctx.value(rfire) and ctx.value(rid) == my_id,
+            channel=("r", my_id),
+        )
+        return {"arid": my_id, "rdata": int(ctx.value(rdata))}
+    return None
+
+records = Pattern(read_txn, timeout=64).collect()
+```
 
 ## 版本历史
 
