@@ -107,16 +107,16 @@ with VcdReader("axi_tb.vcd") as r:
     rdata   = r.load_waveform("tb.dut.rdata[31:0]", clock=clk)
 
     result = (
-        Pattern()
+        Pattern(timeout=256)
         .wait(arvalid & arready)   # AR handshake
         .wait(rvalid & rready)     # R handshake
         .capture("rdata", rdata)
-        .timeout(256)
         .match()
     )
 
-    for m in result.filter_valid():
-        print(f"Latency: {m.duration.value} cycles, data: {m.captures['rdata'].value}")
+    ok = result.filter_ok()
+    print(f"Latencies (cycles): {ok.duration.value}")
+    print(f"Read data: {ok.captures['rdata'].value}")
 ```
 
 ## Core API
@@ -150,19 +150,44 @@ A `Waveform` wraps three NumPy arrays: `.value`, `.clock`, `.time`.
 
 ### Pattern engine
 
-Describe a temporal sequence; the NFA engine finds all matches in one pass.
+Describe a temporal sequence; the engine finds all matches in one pass.
+There are two authoring styles sharing one runtime:
+
+- **Declarative** &mdash; chain steps like `.wait()`, `.consume()`, `.capture()`, `.loop()`. Best for fixed transaction flows.
+- **Programmable** &mdash; pass an async handler to `Pattern(handler)`. Best for dynamic branches and per-ID routing.
 
 | Step | Description |
 |:-----|:------------|
-| `.wait(cond)` | Block until condition is true |
+| `.wait(cond)` | Observe cycles until condition is true (non-consuming) |
+| `.consume(cond, channel)` | Wait and atomically consume a channel event (FIFO arbitration) |
 | `.delay(n)` | Advance n cycles |
 | `.capture(name, signal)` | Record signal value |
 | `.require(cond)` | Assert condition (fail &rarr; `REQUIRE_VIOLATED`) |
 | `.loop(body, until=\|when=)` | Repeat until/when condition |
 | `.repeat(body, n)` | Execute body n times |
 | `.branch(cond, T, F)` | Conditional branch |
-| `.timeout(max)` | Mark unfinished as `TIMEOUT` |
-| `.match()` | Run engine &rarr; `MatchResult` (`.start`, `.end`, `.duration`, `.captures`, `.filter_valid()`) |
+| `Pattern(timeout=max)` | Mark unfinished as `TIMEOUT` (`.timeout(max)` is deprecated) |
+| `.match()` | Run engine &rarr; `MatchResult` (`.start`, `.end`, `.duration`, `.status`, `.captures`, `.filter_ok()`, `.filter_failed()`, `.filter_status(s)`) |
+| `.collect()` | Programmable only: gather non-`None` handler return values into a list |
+
+**Programmable example** &mdash; match out-of-order responses by ID:
+
+```python
+arfire = arvalid & arready   # precompute outside the handler
+rfire = rvalid & rready
+
+async def read_txn(ctx):
+    if ctx.value(arfire):
+        my_id = ctx.value(arid)
+        await ctx.consume(
+            lambda: ctx.value(rfire) and ctx.value(rid) == my_id,
+            channel=("r", my_id),
+        )
+        return {"arid": my_id, "rdata": int(ctx.value(rdata))}
+    return None
+
+records = Pattern(read_txn, timeout=64).collect()
+```
 
 ## API notes
 

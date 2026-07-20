@@ -24,8 +24,9 @@ def str_value_change_to_int_value_change_uint64(int_str_list, xz_value):
     return result
 
 
-def value_change_to_value_array_uint64(value_change, clock_changes,
-                                       sample_on_posedge, clock_offset=0):
+def value_change_to_value_array_uint64(
+    value_change, clock_changes, sample_on_posedge, clock_offset=0
+):
     """Resample uint64 value changes to clock edges."""
     value_time = value_change[:, 0]
     value = value_change[:, 1]
@@ -56,8 +57,9 @@ def value_change_to_value_array_uint64(value_change, clock_changes,
     return value_res[:ccnt], clock_res[:ccnt], time_res[:ccnt]
 
 
-def value_change_to_value_array_object(value_change, clock_changes,
-                                       sample_on_posedge, clock_offset=0):
+def value_change_to_value_array_object(
+    value_change, clock_changes, sample_on_posedge, clock_offset=0
+):
     """Resample object-typed value changes to clock edges."""
     value_time = value_change[:, 0].astype(np.uint64)
     value = value_change[:, 1]
@@ -88,12 +90,13 @@ def value_change_to_value_array_object(value_change, clock_changes,
     return value_res[:ccnt], clock_res[:ccnt], time_res[:ccnt]
 
 
-def value_change_to_value_array(value_change, clock_changes,
-                                sample_on_posedge, clock_offset=0):
+def value_change_to_value_array(value_change, clock_changes, sample_on_posedge, clock_offset=0):
     """Dispatch to uint64 or object path based on value_change dtype."""
     if value_change.dtype == np.object_:
         return value_change_to_value_array_object(
-            value_change, clock_changes, sample_on_posedge, clock_offset)
+            value_change, clock_changes, sample_on_posedge, clock_offset
+        )
     else:
         return value_change_to_value_array_uint64(
-            value_change, clock_changes, sample_on_posedge, clock_offset)
+            value_change, clock_changes, sample_on_posedge, clock_offset
+        )

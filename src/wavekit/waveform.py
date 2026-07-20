@@ -335,7 +335,6 @@ class Waveform:
     def _add(a, b):
         return a + b
 
-
     def _check_alignment(self, other):
         """Raise ValueError if other Waveform has different length/clock/time."""
         if isinstance(other, Waveform):
@@ -423,10 +422,10 @@ class Waveform:
         else:
             new_width = width_fn
 
-        if kind == 'shift' and new_width is not None and new_width > Waveform.MAX_SHIFT_RESULT_WIDTH:
+        max_shift_width = Waveform.MAX_SHIFT_RESULT_WIDTH
+        if kind == 'shift' and new_width is not None and new_width > max_shift_width:
             raise ValueError(
-                f'shift result width {new_width} exceeds limit of '
-                f'{Waveform.MAX_SHIFT_RESULT_WIDTH}'
+                f'shift result width {new_width} exceeds limit of {Waveform.MAX_SHIFT_RESULT_WIDTH}'
             )
 
         if value_transformer is not None:
@@ -481,12 +480,21 @@ class Waveform:
 
     def __add__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._add, kind='arith',
+            other,
+            op=self._add,
+            kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(
-                lambda: (max(s.width, s._get_width(o)) + 1) if s.width is not None and s._get_width(o) is not None else None),
+                lambda: (
+                    (max(s.width, s._get_width(o)) + 1)
+                    if s.width is not None and s._get_width(o) is not None
+                    else None
+                )
+            ),
         )
+
     def __radd__(self, other: WaveformOrScalar) -> Waveform:
         return self.__add__(other)
+
     @staticmethod
     # @jit
     def _sub(a, b):
@@ -494,16 +502,21 @@ class Waveform:
 
     def __sub__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._sub, kind='arith',
-            width_fn=lambda s, o: s._infer_arithmetic_op_width(
-                lambda: s._optional_max_width(o)),
+            other,
+            op=self._sub,
+            kind='arith',
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s._optional_max_width(o)),
         )
+
     def __rsub__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._sub, kind='arith', reverse=True,
-            width_fn=lambda s, o: s._infer_arithmetic_op_width(
-                lambda: s._optional_max_width(o)),
+            other,
+            op=self._sub,
+            kind='arith',
+            reverse=True,
+            width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s._optional_max_width(o)),
         )
+
     @staticmethod
     # @jit
     def _mul(a, b):
@@ -511,12 +524,21 @@ class Waveform:
 
     def __mul__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._mul, kind='arith',
+            other,
+            op=self._mul,
+            kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(
-                lambda: (s.width + s._get_width(o)) if s.width is not None and s._get_width(o) is not None else None),
+                lambda: (
+                    (s.width + s._get_width(o))
+                    if s.width is not None and s._get_width(o) is not None
+                    else None
+                )
+            ),
         )
+
     def __rmul__(self, other: WaveformOrScalar) -> Waveform:
         return self.__mul__(other)
+
     @staticmethod
     # @jit
     def _truediv(a, b):
@@ -524,14 +546,21 @@ class Waveform:
 
     def __truediv__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=lambda a, b: a / b, kind='arith',
+            other,
+            op=lambda a, b: a / b,
+            kind='arith',
             width_fn=None,
         )
+
     def __rtruediv__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=lambda a, b: a / b, kind='arith', reverse=True,
+            other,
+            op=lambda a, b: a / b,
+            kind='arith',
+            reverse=True,
             width_fn=None,
         )
+
     @staticmethod
     # @jit
     def _floordiv(a, b):
@@ -539,14 +568,21 @@ class Waveform:
 
     def __floordiv__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._floordiv, kind='arith',
+            other,
+            op=self._floordiv,
+            kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s.width),
         )
+
     def __rfloordiv__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._floordiv, kind='arith', reverse=True,
+            other,
+            op=self._floordiv,
+            kind='arith',
+            reverse=True,
             width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s._get_width(o)),
         )
+
     @staticmethod
     # @jit
     def _mod(a, b):
@@ -554,14 +590,21 @@ class Waveform:
 
     def __mod__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._mod, kind='arith',
+            other,
+            op=self._mod,
+            kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s.width),
         )
+
     def __rmod__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._mod, kind='arith', reverse=True,
+            other,
+            op=self._mod,
+            kind='arith',
+            reverse=True,
             width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: s._get_width(o)),
         )
+
     @staticmethod
     # @jit
     def _pow(a, b):
@@ -569,9 +612,12 @@ class Waveform:
 
     def __pow__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._pow, kind='arith',
+            other,
+            op=self._pow,
+            kind='arith',
             width_fn=lambda s, o: s._infer_arithmetic_op_width(lambda: 64),
         )
+
     def __rpow__(self, other: WaveformOrScalar) -> Waveform:
         if not isinstance(other, Waveform):
             raise NotImplementedError(
@@ -581,9 +627,13 @@ class Waveform:
                 'operation is a power-of-two shift.'
             )
         return self._binary_op(
-            other, op=self._pow, kind='arith', reverse=True,
+            other,
+            op=self._pow,
+            kind='arith',
+            reverse=True,
             width_fn=None,
         )
+
     def _check_logical_op_type(self, other):
         if self.value.dtype not in (np.int64, np.uint64, np.object_):
             raise TypeError('Can only perform logical operations on 64-bit integers')
@@ -628,7 +678,6 @@ class Waveform:
                 'on one operand'
             ) from e
 
-
     @staticmethod
     def _lshift_width_fn(self, other):
         base_width = self.width or 0
@@ -664,16 +713,22 @@ class Waveform:
         elif isinstance(other, int) and self.width:
             return max(other.bit_length(), self.width)
         return self.width
+
     def __lshift__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._lshift, kind='shift',
+            other,
+            op=self._lshift,
+            kind='shift',
             width_fn=Waveform._lshift_width_fn,
             value_transformer=_shift_dtype_upgrader,
         )
 
     def __rlshift__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._lshift, kind='shift', reverse=True,
+            other,
+            op=self._lshift,
+            kind='shift',
+            reverse=True,
             width_fn=Waveform._rlshift_width_fn,
             value_transformer=_shift_dtype_upgrader,
         )
@@ -692,13 +747,18 @@ class Waveform:
 
     def __rshift__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._rshift, kind='shift',
+            other,
+            op=self._rshift,
+            kind='shift',
             width_fn=Waveform._rshift_width_fn,
         )
 
     def __rrshift__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self._binary_op(
-            other, op=self._rshift, kind='shift', reverse=True,
+            other,
+            op=self._rshift,
+            kind='shift',
+            reverse=True,
             width_fn=Waveform._rrshift_width_fn,
             value_transformer=_shift_dtype_upgrader,
         )
@@ -710,12 +770,16 @@ class Waveform:
 
     def __and__(self, other: WaveformOrScalar) -> Waveform:
         return self._binary_op(
-            other, op=self._and, kind='bitwise',
+            other,
+            op=self._and,
+            kind='bitwise',
             width_fn=lambda s, o: s._infer_logical_op_width(o),
             result_signed=False,
         )
+
     def __rand__(self, other: WaveformOrScalar) -> Waveform:
         return self.__and__(other)
+
     @staticmethod
     # @jit
     def _or(a, b):
@@ -723,12 +787,16 @@ class Waveform:
 
     def __or__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self._binary_op(
-            other, op=self._or, kind='bitwise',
+            other,
+            op=self._or,
+            kind='bitwise',
             width_fn=lambda s, o: s._infer_logical_op_width(o, inferred_width=width),
             result_signed=False,
         )
+
     def __ror__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self.__or__(other, width)
+
     @staticmethod
     # @jit
     def _xor(a, b):
@@ -736,12 +804,16 @@ class Waveform:
 
     def __xor__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self._binary_op(
-            other, op=self._xor, kind='bitwise',
+            other,
+            op=self._xor,
+            kind='bitwise',
             width_fn=lambda s, o: s._infer_logical_op_width(o, inferred_width=width),
             result_signed=False,
         )
+
     def __rxor__(self, other: WaveformOrScalar, width: int = None) -> Waveform:
         return self.__xor__(other, width)
+
     @staticmethod
     # @jit
     def _invert(a, width: int):
@@ -769,8 +841,11 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         return self._binary_op(
-            other, op=self._eq, kind='cmp',
-            width_fn=1, result_signed=False,
+            other,
+            op=self._eq,
+            kind='cmp',
+            width_fn=1,
+            result_signed=False,
         )
 
     @staticmethod
@@ -782,8 +857,11 @@ class Waveform:
         if not isinstance(other, (Waveform, int, float)):
             return NotImplemented
         return self._binary_op(
-            other, op=self._ne, kind='cmp',
-            width_fn=1, result_signed=False,
+            other,
+            op=self._ne,
+            kind='cmp',
+            width_fn=1,
+            result_signed=False,
         )
 
     @staticmethod
@@ -829,8 +907,7 @@ class Waveform:
         if isinstance(index, slice):
             if index.start is None or index.stop is None:
                 raise ValueError(
-                    'Waveform slice must be [high:low], both bounds required '
-                    '(e.g. wave[7:0])'
+                    'Waveform slice must be [high:low], both bounds required (e.g. wave[7:0])'
                 )
             if index.step is not None:
                 raise ValueError('slice with step is not supported')
@@ -944,7 +1021,9 @@ class Waveform:
             raise ValueError(f'chunk_size must be positive, got {chunk_size}')
 
         def _bool_chunk(arr, _func=None):
-            return np.array([np.any(arr[i:i+chunk_size]) for i in range(0, len(arr), chunk_size)])
+            return np.array(
+                [np.any(arr[i : i + chunk_size]) for i in range(0, len(arr), chunk_size)]
+            )
 
         result = Waveform(
             value=helper(self.value, func),
@@ -1052,7 +1131,8 @@ class Waveform:
         if len(self.value) == 0:
             return Waveform(
                 value=np.array([], dtype=np.uint64),
-                clock=self.clock.copy(), time=self.time.copy(),
+                clock=self.clock.copy(),
+                time=self.time.copy(),
                 signal=Signal('', '', 1, None, False),
                 xz_mask=np.array([], dtype=bool) if self.xz_mask is not None else None,
             )
@@ -1092,7 +1172,8 @@ class Waveform:
         if len(self.value) == 0:
             return Waveform(
                 value=np.array([], dtype=np.uint64),
-                clock=self.clock.copy(), time=self.time.copy(),
+                clock=self.clock.copy(),
+                time=self.time.copy(),
                 signal=Signal('', '', 1, None, False),
                 xz_mask=np.array([], dtype=bool) if self.xz_mask is not None else None,
             )
@@ -1227,8 +1308,7 @@ class Waveform:
         for w in waves:
             if len(w.value) != n:
                 raise ValueError(
-                    f'All waveforms must have the same length '
-                    f'(expected {n}, got {len(w.value)})'
+                    f'All waveforms must have the same length (expected {n}, got {len(w.value)})'
                 )
             if not np.array_equal(w.clock, waves[0].clock):
                 raise ValueError('All waveforms must share the same clock')
@@ -1320,7 +1400,7 @@ class Waveform:
             for m in all_masks[1:]:
                 merged_mask |= m
 
-        new_value = np.zeros(wave_len, dtype=np.object_)
+        new_value: npt.NDArray[Any] = np.zeros(wave_len, dtype=np.object_)
         for idx in range(wave_len):
             value_lst = [w.value[idx] for w in waves]
             new_value[idx] = func(value_lst)
@@ -1554,15 +1634,17 @@ class Waveform:
         )
         if self.xz_mask is not None:
             if offset > 0:
-                xz_pad = self.xz_mask[-1] if pad == "repeat" else False
+                xz_pad = self.xz_mask[-1] if pad == 'repeat' else False
                 xz_remaining = self.xz_mask[offset:]
                 xz_pad_count = n - len(xz_remaining)
-                xz_shifted = np.concatenate([xz_remaining, np.full(xz_pad_count, xz_pad, dtype=np.bool_)])
+                xz_pad_arr: npt.NDArray[np.bool_] = np.full(xz_pad_count, xz_pad, dtype=np.bool_)
+                xz_shifted = np.concatenate([xz_remaining, xz_pad_arr])
             elif offset < 0:
-                xz_pad = self.xz_mask[0] if pad == "repeat" else False
-                xz_remaining = self.xz_mask[:max(0, n + offset)]
+                xz_pad = self.xz_mask[0] if pad == 'repeat' else False
+                xz_remaining = self.xz_mask[: max(0, n + offset)]
                 xz_pad_count = n - len(xz_remaining)
-                xz_shifted = np.concatenate([np.full(xz_pad_count, xz_pad, dtype=np.bool_), xz_remaining])
+                xz_pad_arr = np.full(xz_pad_count, xz_pad, dtype=np.bool_)
+                xz_shifted = np.concatenate([xz_pad_arr, xz_remaining])
             else:
                 xz_shifted = self.xz_mask.copy()
             result.xz_mask = xz_shifted
@@ -1634,6 +1716,7 @@ class Waveform:
         """
         return self.relative(-n, pad, pad_value)
 
+
 def _shift_dtype_upgrader(lhs, rhs, new_width):
     if new_width is not None and new_width > 64:
         if isinstance(lhs, np.ndarray) and lhs.dtype != np.object_:
@@ -1641,4 +1724,3 @@ def _shift_dtype_upgrader(lhs, rhs, new_width):
         if isinstance(rhs, np.ndarray) and rhs.dtype != np.object_:
             rhs = rhs.astype(np.object_)
     return lhs, rhs
-

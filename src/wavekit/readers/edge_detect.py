@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Common clock edge detection logic shared across VCD/FST/FSDB readers."""
+
+from __future__ import annotations
 
 import numpy as np
 
@@ -15,8 +15,7 @@ def select_clock_edges(
 ):
     if clock_width != 1:
         raise ValueError(
-            f"clock signal '{clock_name}' has width {clock_width}; "
-            'only 1-bit clocks are supported'
+            f"clock signal '{clock_name}' has width {clock_width}; only 1-bit clocks are supported"
         )
     values = all_clock_changes[:, 1]
     prev = np.roll(values, 1)
@@ -32,7 +31,5 @@ def select_clock_edges(
     edge_times = all_clock_changes[edge_mask, 0]
     if len(edge_times) == 0:
         edge_label = 'rising' if sample_on_posedge else 'falling'
-        raise ValueError(
-            f"clock signal '{clock_name}' has no valid {edge_label} edges"
-        )
+        raise ValueError(f"clock signal '{clock_name}' has no valid {edge_label} edges")
     return edge_mask, edge_times

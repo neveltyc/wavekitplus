@@ -9,6 +9,7 @@ repository = "https://github.com/neveltyc/wavekitplus"
 [tool.poetry.dependencies]
 python = "^3.9"
 numpy = "^2.0.0"
+typing-extensions = "^4.0.0"
 pylibfst = { version = "^0.2.1", optional = true }
 
 [tool.poetry.extras]
@@ -16,7 +17,7 @@ fst = ["pylibfst"]
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.2"
-mypy = "^1.11.2"
+mypy = ">=1.11.2,<2.0"
 pytest = "^8.2.2"
 
 [tool.ruff]
@@ -36,7 +37,7 @@ line-ending = "lf"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 
 [tool.mypy]
 python_version = "3.9"
@@ -48,6 +49,10 @@ check_untyped_defs = false
 ignore_missing_imports = true
 no_implicit_optional = false
 disable_error_code = ["misc"]
+
+[[tool.mypy.overrides]]
+module = ["pytest"]
+follow_imports = "skip"
 
 [build-system]
 requires = ["poetry-core", "Cython", "setuptools", "wheel", "numpy>=2.0.0"]

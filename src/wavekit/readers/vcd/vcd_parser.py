@@ -6,10 +6,8 @@
 # - Extracted VCDParser class and dependencies only
 # - Removed CLI commands, formatters, condition engine
 
-import sys
 import os
 import re
-import math
 from collections import defaultdict
 
 _UNITS = {'fs': 1e-15, 'ps': 1e-12, 'ns': 1e-9, 'us': 1e-6, 'ms': 1e-3, 's': 1.0}
@@ -19,6 +17,7 @@ _UNITS = {'fs': 1e-15, 'ps': 1e-12, 'ns': 1e-9, 'us': 1e-6, 'ms': 1e-3, 's': 1.0
 # files but reject pathological/malicious inputs cleanly.
 # Override per-process via environment variables, e.g.:
 #   VCD_ANALYZER_MAX_VARS=2000000 vcd_analyzer info big.vcd
+
 
 def _env_int(name, default):
     """Read a positive integer resource limit from the environment."""
@@ -32,10 +31,9 @@ def _env_int(name, default):
     return value if value > 0 else default
 
 
-
 MAX_VARS = _env_int('VCD_ANALYZER_MAX_VARS', 1_000_000)
 MAX_REASSEMBLE_BITS = _env_int('VCD_ANALYZER_MAX_REASSEMBLE_BITS', 65536)
-MAX_TIME_ARG_LEN = 100         # CLI/programmatic time string length cap
+MAX_TIME_ARG_LEN = 100  # CLI/programmatic time string length cap
 MAX_TIME_TICKS = (1 << 63) - 1  # int64 max -- keeps downstream arithmetic safe
 MAX_FILTER_PATTERN_LEN = 256
 MAX_FILTER_WILDCARDS = 16
@@ -50,19 +48,19 @@ MAX_FILTER_WILDCARDS = 16
 #  - silent drop (truncate retained list): for metadata-only caps whose
 #    violation only affects the cosmetic output of `info --verbose`. These
 #    are noted inline where they apply.
-MAX_INT_DIGITS = 100              # any int-from-string in header (width, bit idx, msb/lsb)
+MAX_INT_DIGITS = 100  # any int-from-string in header (width, bit idx, msb/lsb)
 MAX_SIGNAL_WIDTH = MAX_REASSEMBLE_BITS  # max bits per single $var declaration
 MAX_VALUE_ARG_LEN = MAX_SIGNAL_WIDTH + 2  # target value string, allows b<MAX_SIGNAL_WIDTH bits>
 MAX_DECIMAL_VALUE_DIGITS = 100  # avoid Python 3.9 int() CPU DoS on --value decimal
 MAX_HEX_VALUE_DIGITS = max(1, (MAX_SIGNAL_WIDTH + 3) // 4)
-MAX_HEADER_BODY_TOKENS = 131072   # any $<kw>...$end section body length (metadata-only effect:
-                                  # truncates $comment / $date / $version bodies; $var bodies
-                                  # are never long enough to be affected in practice)
-MAX_COMMENTS = 1024               # number of $comment sections retained (metadata-only)
-MAX_SCOPE_DEPTH = 256             # $scope nesting depth (fail-fast: lost scope breaks path)
-MAX_INITIAL_TOKENS = 131072       # tokens buffered from same line as $enddefinitions $end
-                                  # (fail-fast: these are data tokens, dropping them
-                                  # would silently corrupt waveforms)
+MAX_HEADER_BODY_TOKENS = 131072  # any $<kw>...$end section body length (metadata-only effect:
+# truncates $comment / $date / $version bodies; $var bodies
+# are never long enough to be affected in practice)
+MAX_COMMENTS = 1024  # number of $comment sections retained (metadata-only)
+MAX_SCOPE_DEPTH = 256  # $scope nesting depth (fail-fast: lost scope breaks path)
+MAX_INITIAL_TOKENS = 131072  # tokens buffered from same line as $enddefinitions $end
+# (fail-fast: these are data tokens, dropping them
+# would silently corrupt waveforms)
 
 
 # IEEE 1364-2005 18.2.2 real value_change is 'r' + real_number where
@@ -77,9 +75,7 @@ MAX_INITIAL_TOKENS = 131072       # tokens buffered from same line as $enddefini
 # length-bounded below; real_number tokens in VCD value_changes shouldn't
 # exceed reasonable %g output width.
 
-_REAL_RE = re.compile(
-    r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$'
-)
+_REAL_RE = re.compile(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$')
 _REAL_MAX_LEN = 64  # Defensive cap: %.16g + sign + exponent fits well under this
 
 # Extended VCD port state character → 4-state mapping (IEEE 1364-2005 18.4.3.1).
@@ -87,14 +83,32 @@ _REAL_MAX_LEN = 64  # Defensive cap: %.16g + sign + exponent fits well under thi
 # is what matters. Conflict states (d/u/l/h) collapse to their logical level.
 _PORT_STATE = {
     # Input (testfixture)
-    'D': '0', 'U': '1', 'N': 'x', 'Z': 'z', 'd': '0', 'u': '1',
+    'D': '0',
+    'U': '1',
+    'N': 'x',
+    'Z': 'z',
+    'd': '0',
+    'u': '1',
     # Output (DUT)
-    'L': '0', 'H': '1', 'X': 'x', 'T': 'z', 'l': '0', 'h': '1',
+    'L': '0',
+    'H': '1',
+    'X': 'x',
+    'T': 'z',
+    'l': '0',
+    'h': '1',
     # Unknown direction (both input and output active)
-    '0': '0', '1': '1', '?': 'x', 'F': 'z',
-    'A': 'x', 'a': 'x', 'B': 'x', 'b': 'x', 'C': 'x', 'c': 'x', 'f': 'z',
+    '0': '0',
+    '1': '1',
+    '?': 'x',
+    'F': 'z',
+    'A': 'x',
+    'a': 'x',
+    'B': 'x',
+    'b': 'x',
+    'C': 'x',
+    'c': 'x',
+    'f': 'z',
 }
-
 
 
 def _parse_timescale(text):
@@ -120,11 +134,9 @@ def _parse_timescale(text):
     return n * _UNITS[m.group(2)]
 
 
-
 class _VCDResourceError(RuntimeError):
     """Raised when a VCD input exceeds configured resource limits.
     Surfaced in main() as a CLI error, no Python traceback."""
-
 
 
 def _parse_vcd_timestamp_token(tok):
@@ -143,17 +155,16 @@ def _parse_vcd_timestamp_token(tok):
     digits = tok[1:]
     if len(digits) > MAX_TIME_ARG_LEN:
         raise _VCDResourceError(
-            'VCD timestamp token too long: {} digits (max {}); '
-            'file may be corrupt or malicious'.format(len(digits), MAX_TIME_ARG_LEN))
+            f'VCD timestamp token too long: {len(digits)} digits (max {MAX_TIME_ARG_LEN}); '
+            'file may be corrupt or malicious'
+        )
     try:
         v = int(digits)
     except ValueError:
         return None  # tolerated malformed (e.g. '#1.5')
     if v > MAX_TIME_TICKS:
-        raise _VCDResourceError(
-            'VCD timestamp too large: got {}, max ticks is {}'.format(v, MAX_TIME_TICKS))
+        raise _VCDResourceError(f'VCD timestamp too large: got {v}, max ticks is {MAX_TIME_TICKS}')
     return v
-
 
 
 def _safe_int_digits(s):
@@ -178,7 +189,6 @@ def _safe_int_digits(s):
         return None
 
 
-
 def _clamp_overwide_logic_value(value, info):
     """Preserve clean 4-state state while rejecting malformed over-wide dumps.
 
@@ -200,20 +210,35 @@ def _clamp_overwide_logic_value(value, info):
     return value
 
 
-_DECL_KEYWORDS = {'$timescale', '$scope', '$upscope', '$var',
-                  '$comment', '$date', '$version', '$enddefinitions'}
+_DECL_KEYWORDS = {
+    '$timescale',
+    '$scope',
+    '$upscope',
+    '$var',
+    '$comment',
+    '$date',
+    '$version',
+    '$enddefinitions',
+}
 
 # Simulation keywords that wrap value_changes until $end. The keyword and $end
 # are pure markers -- the wrapped value_changes are parsed normally.
 # Four-state VCD (18.2.3.9-12) + extended VCD (18.4.1 BNF).
-_SIM_KEYWORDS = {'$dumpall', '$dumpoff', '$dumpon', '$dumpvars',
-                 '$dumpports', '$dumpportsoff', '$dumpportson', '$dumpportsall'}
+_SIM_KEYWORDS = {
+    '$dumpall',
+    '$dumpoff',
+    '$dumpon',
+    '$dumpvars',
+    '$dumpports',
+    '$dumpportsoff',
+    '$dumpportson',
+    '$dumpportsall',
+}
 
 # Sections that can appear in the data area whose body is NOT value_changes
 # and must be skipped wholesale until $end. $comment (18.2.3.1) is in both
 # header and data; $vcdclose (18.3.6.1) wraps a final simulation time token.
 _DATA_SKIP_SECTIONS = {'$comment', '$vcdclose'}
-
 
 
 class VCDParser:
@@ -233,8 +258,8 @@ class VCDParser:
     def __init__(self, path):
         self.path = path
         self.ts_str = ''
-        self.ts_sec = 1e-12        # timescale in seconds
-        self.signals = {}           # sig_id -> {path, width, type, aliases}
+        self.ts_sec = 1e-12  # timescale in seconds
+        self.signals = {}  # sig_id -> {path, width, type, aliases}
         self._data_offset = 0
         # Header metadata per IEEE 1364-2005 18.2.3:
         #   $date    - simulation date string (18.2.3.2)
@@ -250,7 +275,7 @@ class VCDParser:
         # If $enddefinitions $end is followed by data tokens on the same
         # line(s) buffered by readline, those tokens replay first in data.
         self._initial_tokens = []
-        self._bit_map = {}          # sym -> (sig_id, bit_index)
+        self._bit_map = {}  # sym -> (sig_id, bit_index)
         self._bit_state_template = {}  # sig_id -> initial bit list for replay-local reassembly
         self._parse_header()
 
@@ -263,7 +288,7 @@ class VCDParser:
         body = []
         done = False
 
-        with open(self.path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(self.path, encoding='utf-8', errors='replace') as f:
             while not done:
                 line = f.readline()
                 if not line:
@@ -281,8 +306,9 @@ class VCDParser:
                         if len(self._initial_tokens) >= MAX_INITIAL_TOKENS:
                             raise _VCDResourceError(
                                 'too many data tokens on the same line as '
-                                '$enddefinitions $end (>{}); file may be '
-                                'corrupt or malicious'.format(MAX_INITIAL_TOKENS))
+                                f'$enddefinitions $end (>{MAX_INITIAL_TOKENS}); file may be '
+                                'corrupt or malicious'
+                            )
                         self._initial_tokens.append(tok)
                         continue
                     if current_kw is None:
@@ -301,8 +327,9 @@ class VCDParser:
                             # 1M-level $scope-without-$upscope construction.
                             if len(scope) >= MAX_SCOPE_DEPTH:
                                 raise _VCDResourceError(
-                                    '$scope nesting depth exceeds {}; '
-                                    'file may be corrupt or malicious'.format(MAX_SCOPE_DEPTH))
+                                    f'$scope nesting depth exceeds {MAX_SCOPE_DEPTH}; '
+                                    'file may be corrupt or malicious'
+                                )
                             scope.append(body[1])
                         elif current_kw == '$upscope':
                             if scope:
@@ -350,9 +377,9 @@ class VCDParser:
                             # Real signals never approach MAX_SIGNAL_WIDTH.
                             if w <= 0 or w > MAX_SIGNAL_WIDTH:
                                 raise _VCDResourceError(
-                                    '$var width {} exceeds max {}; '
-                                    'file may be corrupt or malicious'.format(
-                                        w, MAX_SIGNAL_WIDTH))
+                                    f'$var width {w} exceeds max {MAX_SIGNAL_WIDTH}; '
+                                    'file may be corrupt or malicious'
+                                )
                             if len(body) <= idx + 1:
                                 current_kw = None
                                 continue
@@ -378,8 +405,9 @@ class VCDParser:
                             # files; tune via VCD_ANALYZER_MAX_VARS env var.
                             if len(raw_vars) >= MAX_VARS:
                                 raise _VCDResourceError(
-                                    'too many $var declarations: more than {}. '
-                                    'Set VCD_ANALYZER_MAX_VARS to raise the limit.'.format(MAX_VARS))
+                                    f'too many $var declarations: more than {MAX_VARS}. '
+                                    'Set VCD_ANALYZER_MAX_VARS to raise the limit.'
+                                )
                             raw_vars.append((sym, name, w, bit_str, '.'.join(scope), vtype))
                         elif current_kw == '$enddefinitions':
                             done = True
@@ -421,10 +449,10 @@ class VCDParser:
         # synthesized as a bus[4:0] with phantom lower bits -- they are kept
         # as individual bit-select references.
         bit_groups = defaultdict(dict)  # (scope, base_name) -> {bit_idx: sym}
-        bit_types = {}                   # (scope, base_name) -> vtype
-        duplicate_bit_groups = set()      # groups with duplicate bit indices; never reassemble
+        bit_types = {}  # (scope, base_name) -> vtype
+        duplicate_bit_groups = set()  # groups with duplicate bit indices; never reassemble
         standalone = []
-        bit_select_singletons = []       # (sym, name, idx, sc, vtype)
+        bit_select_singletons = []  # (sym, name, idx, sc, vtype)
 
         for sym, name, w, bit_str, sc, vtype in raw_vars:
             if w == 1 and bit_str is not None:
@@ -455,7 +483,9 @@ class VCDParser:
                         raise _VCDResourceError(
                             'bit-exploded group {}.{} has more than {} bits. '
                             'Set VCD_ANALYZER_MAX_REASSEMBLE_BITS to raise the limit.'.format(
-                                sc or '<root>', name, MAX_REASSEMBLE_BITS))
+                                sc or '<root>', name, MAX_REASSEMBLE_BITS
+                            )
+                        )
                     bit_types[(sc, name)] = vtype
                     bit_select_singletons.append((sym, name, idx, sc, vtype))
                     continue
@@ -494,21 +524,25 @@ class VCDParser:
         # Each non-contiguous bit-select becomes a standalone 'name[idx]' signal
         for sym, name, idx, sc, vtype in bit_select_singletons:
             if (sc, name) in non_contiguous:
-                standalone.append((sym, '{}[{}]'.format(name, idx), 1, sc, vtype))
+                standalone.append((sym, f'{name}[{idx}]', 1, sc, vtype))
 
         # Register standalone signals. Per IEEE 1364-2005 18.2.3.7, the same
         # identifier_code can be referenced under multiple paths. First seen
         # type wins when aliases have different var_types.
         for sym, name, w, sc, vtype in standalone:
-            path = '{}.{}'.format(sc, name) if sc else name
+            path = f'{sc}.{name}' if sc else name
             if sym in self.signals:
                 self.signals[sym]['aliases'].append(path)
                 if sc and sc not in self.signals[sym].setdefault('scopes', []):
                     self.signals[sym]['scopes'].append(sc)
             else:
                 self.signals[sym] = {
-                    'path': path, 'width': w, 'type': vtype,
-                    'aliases': [path], 'scope': sc, 'scopes': [sc] if sc else []
+                    'path': path,
+                    'width': w,
+                    'type': vtype,
+                    'aliases': [path],
+                    'scope': sc,
+                    'scopes': [sc] if sc else [],
                 }
 
         for (sc, name), bits in bit_groups.items():
@@ -516,13 +550,16 @@ class VCDParser:
                 continue
             max_bit = max(bits.keys())
             width = max_bit + 1
-            path = '{}.{}[{}:0]'.format(sc, name, max_bit) if sc else '{}[{}:0]'.format(name, max_bit)
-            sig_id = '__grp__{}__{}'.format(sc, name)
+            path = f'{sc}.{name}[{max_bit}:0]' if sc else f'{name}[{max_bit}:0]'
+            sig_id = f'__grp__{sc}__{name}'
             self.signals[sig_id] = {
-                'path': path, 'width': width,
+                'path': path,
+                'width': width,
                 'type': bit_types.get((sc, name), 'wire'),
-                'aliases': [path], 'scope': sc, 'scopes': [sc] if sc else [],
-                'synthesized': True,    # bit-exploded reassembled bus
+                'aliases': [path],
+                'scope': sc,
+                'scopes': [sc] if sc else [],
+                'synthesized': True,  # bit-exploded reassembled bus
                 'raw_bits': len(bits),  # number of $var declarations consumed
             }
             self._bit_state_template[sig_id] = ['x'] * width
@@ -543,49 +580,11 @@ class VCDParser:
         for _sym, _name, _w, _bit_str, _sc, vtype in raw_vars:
             self.raw_type_counts[vtype] += 1
 
-    def match(self, keywords):
-        """Return set of sig_ids matching any pattern, or None for all.
-
-        Plain patterns use case-insensitive substring matching. Patterns
-        containing '*' or '?' use the tool's minimal glob-lite matching:
-        '*' matches any span, '?' matches one character, and all other
-        characters are literal. This intentionally differs from fnmatch:
-        '[' and ']' are NOT character-class delimiters because VCD bus ranges
-        like data[7:0] are common signal names.
-
-        Input is normalized through _normalize_filter_patterns to bound
-        pattern length and wildcard count.
-        """
-        if not keywords:
-            return None
-        raw_pats = [k.lower() for k in _normalize_filter_patterns(keywords) or []]
-        if not raw_pats:
-            return None
-        pats = []
-        for pat in raw_pats:
-            if any(ch in pat for ch in '*?'):
-                pats.append(('glob', _glob_lite_regex(pat)))
-            else:
-                pats.append(('substr', pat))
-        out = set()
-        for sid, info in self.signals.items():
-            for path in info['aliases']:
-                pl = path.lower()
-                hit = False
-                for kind, pat in pats:
-                    hit = pat.match(pl) is not None if kind == 'glob' else pat in pl
-                    if hit:
-                        out.add(sid)
-                        break
-                if hit:
-                    break
-        return out
-
     def _data_tokens(self):
         """Generator yielding all tokens from the data section."""
         for t in self._initial_tokens:
             yield t
-        with open(self.path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(self.path, encoding='utf-8', errors='replace') as f:
             f.seek(self._data_offset)
             for line in f:
                 for t in line.split():
@@ -889,11 +888,8 @@ class VCDParser:
         return t_min, t_max
 
 
-
 # -- Subcommands -------------------------------------------------------------
-
 
 
 def _is_4state_bits(text):
     return text is not None and text != '' and all(c in '01xz' for c in text)
-

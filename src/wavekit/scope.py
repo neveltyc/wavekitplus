@@ -263,7 +263,9 @@ def match_signals(
                         key = (match.groups(),)
                         if len(pattern_list) == 1:
                             if key in res:
-                                raise ValueError(f'pattern {name_regex} matches more than one signal')
+                                raise ValueError(
+                                    f'pattern {name_regex} matches more than one signal'
+                                )
                             res[key] = resolve_leaf(sig, sig_bare, range_suffix)
                         elif sig.member_list is not None:
                             for ck, cv in _match_signals_in_list(
@@ -322,8 +324,8 @@ def match_scopes(
     return _traverse_scope_tree(scope, descendant_scope_pattern_list, leaf)
 
 
-
 # ── Relative matchers for root_scope support ─────────────────────────
+
 
 def _parse_range_suffix(range_suffix):
     m = re.fullmatch(r'\[(\d+)(?::(\d+))?\]', range_suffix)

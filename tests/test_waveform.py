@@ -1,4 +1,5 @@
 import warnings
+
 import numpy as np
 import pytest
 
@@ -678,12 +679,16 @@ def test_relative_preserves_metadata():
 
 def test_binary_op_value_transformer_runs_before_op():
     import numpy as np
-    w = Waveform(value=np.array([5], dtype=np.uint64),
-                 clock=np.array([0], dtype=np.uint64),
-                 time=np.array([0], dtype=np.uint64),
-                 signal=Signal('w', 'w', 8, None, False))
+
+    w = Waveform(
+        value=np.array([5], dtype=np.uint64),
+        clock=np.array([0], dtype=np.uint64),
+        time=np.array([0], dtype=np.uint64),
+        signal=Signal('w', 'w', 8, None, False),
+    )
 
     op_inputs = []
+
     def capturing_op(a, b):
         op_inputs.append(a.dtype)
         return a + b
@@ -691,8 +696,9 @@ def test_binary_op_value_transformer_runs_before_op():
     def to_object(lhs, rhs, nw):
         return lhs.astype(np.object_), rhs
 
-    w._binary_op(3, op=capturing_op, kind='arith',
-                 width_fn=lambda s, o: 8, value_transformer=to_object)
+    w._binary_op(
+        3, op=capturing_op, kind='arith', width_fn=lambda s, o: 8, value_transformer=to_object
+    )
 
     assert op_inputs[0] == np.object_, (
         f'op saw {op_inputs[0]}, expected object — hook must run BEFORE op'
@@ -700,105 +706,144 @@ def test_binary_op_value_transformer_runs_before_op():
 
 
 def test_split_bits_sum_mismatch_raises_valueerror():
-    from wavekit.waveform import Waveform
     from wavekit.signal import Signal
-    w = Waveform(value=np.array([0xFF], dtype=np.uint64),
+    from wavekit.waveform import Waveform
+
+    w = Waveform(
+        value=np.array([0xFF], dtype=np.uint64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('w','w',8,None,False))
+        signal=Signal('w', 'w', 8, None, False),
+    )
     with pytest.raises(ValueError):
         w.split_bits([3, 3], padding=False)
 
 
 # -- v0.9.7 regression: shift signedness consistency (P0-3) --
 
-@pytest.mark.parametrize('width_a,width_b', [
-    (4, 4),
-    (64, 2),
-    (32, 32),
-    (64, 64),
-])
+
+@pytest.mark.parametrize(
+    'width_a,width_b',
+    [
+        (4, 4),
+        (64, 2),
+        (32, 32),
+        (64, 64),
+    ],
+)
 def test_shift_rejects_signedness_mismatch_consistently(width_a, width_b):
-    a = Waveform(value=np.array([1], dtype=np.int64),
+    a = Waveform(
+        value=np.array([1], dtype=np.int64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('a','a',width_a,None,True))
-    b = Waveform(value=np.array([1], dtype=np.uint64),
+        signal=Signal('a', 'a', width_a, None, True),
+    )
+    b = Waveform(
+        value=np.array([1], dtype=np.uint64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('b','b',width_b,None,False))
+        signal=Signal('b', 'b', width_b, None, False),
+    )
     with pytest.raises(ValueError, match='signedness'):
         _ = a << b
     with pytest.raises(ValueError, match='signedness'):
         _ = a >> b
 
+
 def test_shift_same_signedness_works():
-    a = Waveform(value=np.array([1, 2], dtype=np.int64),
+    a = Waveform(
+        value=np.array([1, 2], dtype=np.int64),
         clock=np.arange(2, dtype=np.uint64),
-        time=np.arange(2, dtype=np.uint64)*10,
-        signal=Signal('a','a',4,None,True))
-    b = Waveform(value=np.array([1, 1], dtype=np.int64),
+        time=np.arange(2, dtype=np.uint64) * 10,
+        signal=Signal('a', 'a', 4, None, True),
+    )
+    b = Waveform(
+        value=np.array([1, 1], dtype=np.int64),
         clock=np.arange(2, dtype=np.uint64),
-        time=np.arange(2, dtype=np.uint64)*10,
-        signal=Signal('b','b',4,None,True))
+        time=np.arange(2, dtype=np.uint64) * 10,
+        signal=Signal('b', 'b', 4, None, True),
+    )
     _ = a << b
     _ = a >> b
 
+
 # -- v0.9.7 regression: __rrshift__ large scalar (P0-2) --
 
+
 def test_rrshift_large_scalar_exact():
-    shifts = Waveform(value=np.array([0, 1, 2], dtype=np.uint64),
+    shifts = Waveform(
+        value=np.array([0, 1, 2], dtype=np.uint64),
         clock=np.arange(3, dtype=np.uint64),
-        time=np.arange(3, dtype=np.uint64)*10,
-        signal=Signal('s','s',8,None,False))
+        time=np.arange(3, dtype=np.uint64) * 10,
+        signal=Signal('s', 's', 8, None, False),
+    )
     r = (1 << 70) >> shifts
     assert [int(v) for v in r.value] == [1 << 70, 1 << 69, 1 << 68]
 
+
 def test_rrshift_huge_scalar():
-    shifts = Waveform(value=np.array([0, 1], dtype=np.uint64),
+    shifts = Waveform(
+        value=np.array([0, 1], dtype=np.uint64),
         clock=np.arange(2, dtype=np.uint64),
-        time=np.arange(2, dtype=np.uint64)*10,
-        signal=Signal('s','s',4,None,False))
+        time=np.arange(2, dtype=np.uint64) * 10,
+        signal=Signal('s', 's', 4, None, False),
+    )
     big = 1 << 100
     r = big >> shifts
     assert int(r.value[0]) == big
     assert int(r.value[1]) == big >> 1
 
+
 # -- v0.9.7 regression: exception types (P2-1) --
 
+
 def test_getitem_unsupported_type_raises_typeerror():
-    w = Waveform(value=np.array([0xFF], dtype=np.uint64),
+    w = Waveform(
+        value=np.array([0xFF], dtype=np.uint64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('w','w',8,None,False))
+        signal=Signal('w', 'w', 8, None, False),
+    )
     with pytest.raises(TypeError):
         _ = w['not an int']
 
+
 def test_concatenate_signed_raises_valueerror():
-    a = Waveform(value=np.array([1], dtype=np.int64),
+    a = Waveform(
+        value=np.array([1], dtype=np.int64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('a','a',4,None,True))
+        signal=Signal('a', 'a', 4, None, True),
+    )
     with pytest.raises(ValueError):
         Waveform.concatenate([a, a])
 
+
 # -- v0.9.7 regression: bitwise signedness consistency --
 
-@pytest.mark.parametrize('width_a,width_b', [
-    (4, 4),
-    (64, 2),
-    (32, 32),
-    (64, 64),
-])
+
+@pytest.mark.parametrize(
+    'width_a,width_b',
+    [
+        (4, 4),
+        (64, 2),
+        (32, 32),
+        (64, 64),
+    ],
+)
 def test_bitwise_rejects_signedness_mismatch_consistently(width_a, width_b):
-    a = Waveform(value=np.array([1], dtype=np.int64),
+    a = Waveform(
+        value=np.array([1], dtype=np.int64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('a','a',width_a,None,True))
-    b = Waveform(value=np.array([1], dtype=np.uint64),
+        signal=Signal('a', 'a', width_a, None, True),
+    )
+    b = Waveform(
+        value=np.array([1], dtype=np.uint64),
         clock=np.array([0], dtype=np.uint64),
         time=np.array([0], dtype=np.uint64),
-        signal=Signal('b','b',width_b,None,False))
+        signal=Signal('b', 'b', width_b, None, False),
+    )
     with pytest.raises(ValueError, match='signedness'):
         _ = a & b
     with pytest.raises(ValueError, match='signedness'):
@@ -806,33 +851,43 @@ def test_bitwise_rejects_signedness_mismatch_consistently(width_a, width_b):
     with pytest.raises(ValueError, match='signedness'):
         _ = a ^ b
 
+
 def test_bitwise_same_signedness_works():
-    a = Waveform(value=np.array([1, 2], dtype=np.int64),
+    a = Waveform(
+        value=np.array([1, 2], dtype=np.int64),
         clock=np.arange(2, dtype=np.uint64),
-        time=np.arange(2, dtype=np.uint64)*10,
-        signal=Signal('a','a',4,None,True))
-    b = Waveform(value=np.array([3, 4], dtype=np.int64),
+        time=np.arange(2, dtype=np.uint64) * 10,
+        signal=Signal('a', 'a', 4, None, True),
+    )
+    b = Waveform(
+        value=np.array([3, 4], dtype=np.int64),
         clock=np.arange(2, dtype=np.uint64),
-        time=np.arange(2, dtype=np.uint64)*10,
-        signal=Signal('b','b',4,None,True))
+        time=np.arange(2, dtype=np.uint64) * 10,
+        signal=Signal('b', 'b', 4, None, True),
+    )
     _ = a & b
     _ = a | b
     _ = a ^ b
 
+
 # -- v0.9.8 regression: huge scalar arithmetic (Problem A) --
 
-@pytest.mark.parametrize('expr', [
-    lambda w: w + (1 << 70),
-    lambda w: (1 << 70) + w,
-    lambda w: w - (1 << 70),
-    lambda w: (1 << 70) - w,
-    lambda w: w * (1 << 70),
-    lambda w: (1 << 70) * w,
-    lambda w: w // (1 << 70),
-    lambda w: (1 << 70) // w,
-    lambda w: w % (1 << 70),
-    lambda w: (1 << 70) % w,
-])
+
+@pytest.mark.parametrize(
+    'expr',
+    [
+        lambda w: w + (1 << 70),
+        lambda w: (1 << 70) + w,
+        lambda w: w - (1 << 70),
+        lambda w: (1 << 70) - w,
+        lambda w: w * (1 << 70),
+        lambda w: (1 << 70) * w,
+        lambda w: w // (1 << 70),
+        lambda w: (1 << 70) // w,
+        lambda w: w % (1 << 70),
+        lambda w: (1 << 70) % w,
+    ],
+)
 def test_arithmetic_rejects_huge_scalar(expr):
     w = build_waveform([1, 2], width=8)
     with pytest.raises(ValueError, match='width too large'):
@@ -841,24 +896,29 @@ def test_arithmetic_rejects_huge_scalar(expr):
 
 # -- v0.9.8 regression: scalar zero width metadata (Problem B) --
 
+
 def test_add_zero_keeps_width_metadata():
     w = build_waveform([1, 2], width=8)
     assert (w + 0).width is not None
     assert (0 + w).width is not None
+
 
 def test_mul_zero_keeps_width_metadata():
     w = build_waveform([1, 2], width=8)
     assert (w * 0).width is not None
     assert (0 * w).width is not None
 
+
 def test_get_width_zero_returns_one():
     from wavekit.waveform import Waveform
+
     assert Waveform._get_width(0) == 1
     assert Waveform._get_width(1) == 1
     assert Waveform._get_width(0xFF) == 8
 
 
 # -- v0.9.8 regression: negative scalar in bitwise/shift (Problem C) --
+
 
 def test_shift_rejects_negative_scalar():
     w = build_waveform([1, 2], width=8)
@@ -868,6 +928,7 @@ def test_shift_rejects_negative_scalar():
         _ = w >> -1
     with pytest.raises(ValueError, match='does not support negative scalar'):
         _ = -1 >> w
+
 
 def test_bitwise_rejects_negative_scalar():
     w = build_waveform([1, 2], width=8)
@@ -880,7 +941,9 @@ def test_bitwise_rejects_negative_scalar():
     with pytest.raises(ValueError, match='does not support negative scalar'):
         _ = -1 & w
 
+
 # -- v0.9.8 regression: unsigned arithmetic rejects negative scalar (Problem A) --
+
 
 def test_unsigned_arithmetic_rejects_negative_scalar():
     w = build_waveform([1, 2], width=8)
@@ -897,6 +960,7 @@ def test_unsigned_arithmetic_rejects_negative_scalar():
     with pytest.raises(ValueError):
         _ = (-1) % w
 
+
 def test_unsigned_subtract_positive_scalar_allowed():
     w = build_waveform([5, 10], width=8)
     r = w - 1
@@ -905,10 +969,12 @@ def test_unsigned_subtract_positive_scalar_allowed():
 
 # -- v0.9.8 regression: max shift result width (Problem B) --
 
+
 def test_lshift_rejects_absurd_scalar_shift_amount():
     w = build_waveform([1], width=8)
     with pytest.raises(ValueError, match='shift result width'):
         _ = w << (1 << 20)
+
 
 def test_rlshift_rejects_absurd_waveform_shift_value():
     shift = build_waveform([1 << 20], width=32)
@@ -917,6 +983,7 @@ def test_rlshift_rejects_absurd_waveform_shift_value():
 
 
 # -- v0.9.8 regression: 64-bit full slice no overflow warning (Problem C) --
+
 
 def test_full_width_64bit_slice_no_overflow_warning():
     w = build_waveform([0xFFFFFFFFFFFFFFFF], width=64)

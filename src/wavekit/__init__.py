@@ -44,14 +44,17 @@ try:
     from .readers.fst.reader import FstReader as FstReader
 except Exception as _exc:
     _fst_err_msg = repr(_exc)
+
     class FstReader:  # type: ignore[no-redef]
         """Placeholder when pylibfst is unavailable."""
+
         def __init__(self, *args, **kwargs):
             raise RuntimeError(
                 'FstReader requires pylibfst.\n\n'
                 'Install it with: pip install pylibfst\n\n'
                 f'Import error: {_fst_err_msg}'
             )
+
 
 try:
     from .readers.fsdb.npi_fsdb_reader import fsdb_runtime_available as _fsdb_runtime_available

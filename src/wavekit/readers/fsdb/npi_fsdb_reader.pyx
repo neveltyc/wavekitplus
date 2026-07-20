@@ -471,23 +471,15 @@ cdef class NpiFsdbSignal:
         return None
 
     def width(self) -> int:
-        """Return the total bit-width of this signal (sum of all leaf members for composites)."""
+        """Return the range width of a non-composite signal."""
         assert self.sig_handle != NULL
-        cdef int has_member
-        cdef int w
-        cdef npiFsdbSigIter sub_signal_iter
-        cdef npiFsdbSigHandle sub_signal
+        cdef int has_member = 0
+        cdef int w = 0
         assert npi_fsdb_sig_property(npiFsdbSigHasMember, self.sig_handle, &has_member)
-        if has_member == 0:
-            assert npi_fsdb_sig_property(npiFsdbSigRangeSize, self.sig_handle, &w)
-            return w
-        else:
-            sub_signal_iter = npi_fsdb_iter_member(self.sig_handle)
-            assert sub_signal_iter != NULL
-            w = 0
-            while (sub_signal := npi_fsdb_iter_sig_next(sub_signal_iter)):
-                w += NpiFsdbSignal.init(sub_signal).width()
-            return w
+        if has_member != 0:
+            raise ValueError('width() does not support composite FSDB signals')
+        assert npi_fsdb_sig_property(npiFsdbSigRangeSize, self.sig_handle, &w)
+        return w
 
     def range(self):
         """Return the (high, low) bit-range tuple, or None for non-array composites."""
@@ -503,7 +495,9 @@ cdef class NpiFsdbSignal:
             if ct == <int>npiFsdbSigCtArray:
                 return (left_range, right_range)
             return None
-        return None
+        if left_range == 0 and right_range == 0:
+            return None
+        return (left_range, right_range)
 
     def member_list(self) -> list:
         """Return direct member NpiFsdbSignal objects for composite signals."""
@@ -582,38 +576,68 @@ cdef class NpiFsdbScope:
         return npi_fsdb_scope_property_str(npiFsdbScopeDefName, self.scope_handle).decode('ascii')
 
 
+cdef enum FsdbDecodeMode:
+    FSDB_DECODE_VALUE_XZ_0 = 0
+    FSDB_DECODE_VALUE_XZ_1 = 1
+    FSDB_DECODE_X_MASK = 2
+    FSDB_DECODE_Z_MASK = 3
+    FSDB_DECODE_XZ_MASK = 4
+    FSDB_DECODE_MASK_NONE = 5
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef inline int cstr_to_ull_array(char* str, unsigned int xz_value, unsigned long long* result, int total_bits):
+cdef inline int cstr_to_ull_array(
+    char* str,
+    FsdbDecodeMode mode,
+    unsigned long long* result,
+    int total_bits,
+):
     cdef int bit_count = 0
     cdef int pos = 0
     cdef int chunk_idx = 0
     cdef int bit_in_chunk = 0
     cdef char c
-    cdef char zero = b'0'
+    cdef unsigned int bit
+    cdef bint append_bit
+
+    cdef unsigned int val_1 = (mode == FSDB_DECODE_VALUE_XZ_0 or mode == FSDB_DECODE_VALUE_XZ_1)
+    cdef unsigned int val_x = (mode == FSDB_DECODE_VALUE_XZ_1
+                              or mode == FSDB_DECODE_X_MASK
+                              or mode == FSDB_DECODE_XZ_MASK)
+    cdef unsigned int val_z = (mode == FSDB_DECODE_VALUE_XZ_1
+                              or mode == FSDB_DECODE_Z_MASK
+                              or mode == FSDB_DECODE_XZ_MASK)
 
     for i in range((total_bits + 63) // 64):
         result[i] = 0
 
     while bit_count < total_bits:
         c = str[pos]
-        if c == b'\0':
+        append_bit = True
+
+        if c == b'0':
+            bit = 0
+        elif c == b'1':
+            bit = val_1
+        elif c == b'x' or c == b'X':
+            bit = val_x
+        elif c == b'z' or c == b'Z':
+            bit = val_z
+        elif c == b'\0':
             break
-        if c == b'0' or c == b'1':
-            result[chunk_idx] = (result[chunk_idx] << 1) + (c - zero)
-            bit_in_chunk += 1
-            bit_count += 1
-        elif c == b'x' or c == b'z' or c == b'X' or c == b'Z':
-            result[chunk_idx] = (result[chunk_idx] << 1) + xz_value
-            bit_in_chunk += 1
-            bit_count += 1
         elif c == b'{' or c == b'}' or c == b',':
-            pass
+            append_bit = False
         else:
             raise ValueError(f"unknown char '{chr(c)}' in fsdb signal value \"{str.decode('ascii')}\"")
-        if bit_in_chunk == 64:
-            chunk_idx += 1
-            bit_in_chunk = 0
+
+        if append_bit:
+            result[chunk_idx] = (result[chunk_idx] << 1) + bit
+            bit_in_chunk += 1
+            bit_count += 1
+            if bit_in_chunk == 64:
+                chunk_idx += 1
+                bit_in_chunk = 0
         pos += 1
 
     return bit_count
@@ -636,21 +660,28 @@ cdef class NpiFsdbReader:
 
     def get_signal(self, str signal) -> NpiFsdbSignal:
         """Look up a signal by its full hierarchical path and return an NpiFsdbSignal handle."""
-        cdef npiFsdbSigHandle signal_handle = npi_fsdb_sig_by_name(self.fsdb_handle, signal.encode('ascii'), NULL)
-        assert signal_handle != NULL, f"can't find signal: {signal}"
+        cdef npiFsdbSigHandle signal_handle = npi_fsdb_sig_by_name(
+            self.fsdb_handle,
+            signal.encode('ascii'),
+            NULL,
+        )
+        if signal_handle == NULL:
+            raise ValueError(f"signal '{signal}' not found")
         return NpiFsdbSignal.init(signal_handle)
 
-    @cython.boundscheck(False)  # 关闭边界检查以提升性能
-    @cython.wraparound(False)   # 关闭负索引检查以提升性能
-    def load_value_change(
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cpdef np.ndarray load_value_change_mode(
         self,
         NpiFsdbSignal signal,
         unsigned long long begin_time,
         unsigned long long end_time,
-        int xz_value
-    ) -> np.ndarray:
+        int mode,
+        int decode_width,
+    ):
+        cdef FsdbDecodeMode c_mode = <FsdbDecodeMode>mode
 
-        cdef int width = signal.width()
+        cdef int width = decode_width
         cdef npiFsdbVctHandle signal_vct_handle = npi_fsdb_create_vct(signal.sig_handle)
         assert signal_vct_handle != NULL, f"can't create vct for signal"
         cdef npiFsdbTime cur_time
@@ -683,7 +714,7 @@ cdef class NpiFsdbReader:
                 break
             time_array.push_back(cur_time)
 
-            cstr_to_ull_array(<char*>cur_value.value.str, xz_value, chunk_values, width)
+            cstr_to_ull_array(<char*>cur_value.value.str, c_mode, chunk_values, width)
             for i in range(value_array_num):
                 value_array[i].push_back(chunk_values[i])
             first = False

@@ -11,8 +11,8 @@ from ...scope import Scope
 from ...signal import Signal
 from ...waveform import Waveform
 from ..base import Reader
-from ..pattern_parser import split_by_range_expr
 from ..edge_detect import select_clock_edges
+from ..pattern_parser import split_by_range_expr
 
 
 @dataclass
@@ -178,9 +178,7 @@ class FstReader(Reader):
             raise ValueError('end_time and end_cycle are mutually exclusive')
 
         if xz_mask:
-            raise NotImplementedError(
-                'xz_mask is not yet supported for FST reader'
-            )
+            raise NotImplementedError('xz_mask is not yet supported for FST reader')
 
         fst_signal, requested_range = self._resolve_signal(signal)
         signal_path = signal.full_name if isinstance(signal, Signal) else signal
@@ -191,7 +189,7 @@ class FstReader(Reader):
         edge_mask, clock_edge_times = select_clock_edges(
             all_clock_changes,
             sample_on_posedge=sample_on_posedge,
-            clock_width=fst_clock.width,
+            clock_width=fst_clock.width if fst_clock.width is not None else 1,
             clock_name=fst_clock.full_name,
         )
 
@@ -205,21 +203,14 @@ class FstReader(Reader):
         if end_cycle is not None:
             if not (0 <= end_cycle <= len(clock_edge_times)):
                 raise ValueError(
-                    f'end_cycle={end_cycle} out of range '
-                    f'(clock has {len(clock_edge_times)} edges)'
+                    f'end_cycle={end_cycle} out of range (clock has {len(clock_edge_times)} edges)'
                 )
             if end_cycle == len(clock_edge_times):
                 pass
             else:
                 end_time = int(clock_edge_times[end_cycle])
-        if (
-            begin_cycle is not None
-            and end_cycle is not None
-            and begin_cycle >= end_cycle
-        ):
-            raise ValueError(
-                f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}'
-            )
+        if begin_cycle is not None and end_cycle is not None and begin_cycle >= end_cycle:
+            raise ValueError(f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}')
 
         begin_time_actual = begin_time if begin_time is not None else 0
         end_time_actual = end_time if end_time is not None else np.iinfo(np.uint64).max
