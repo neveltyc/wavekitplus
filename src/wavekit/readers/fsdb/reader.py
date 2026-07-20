@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import re
 import importlib
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -14,8 +14,8 @@ from ...scope import Scope
 from ...signal import Signal, SignalCompositeType
 from ...waveform import Waveform
 from ..base import Reader
-from ..pattern_parser import split_by_range_expr
 from ..edge_detect import select_clock_edges
+from ..pattern_parser import split_by_range_expr
 from .npi_fsdb_reader import (
     NPI_FSDB_CT_ARRAY,
     NPI_FSDB_CT_RECORD,
@@ -26,6 +26,27 @@ from .npi_fsdb_reader import (
     NpiFsdbScope,
     NpiFsdbSignal,
 )
+
+# Decode modes understood by NpiFsdbReader.load_value_change_mode (FsdbDecodeMode
+# in npi_fsdb_reader.pyx): value decode with x/z mapped to 0 or 1, or per-bit
+# x/z mask extraction.
+_FSDB_DECODE_VALUE_XZ_0 = 0
+_FSDB_DECODE_VALUE_XZ_1 = 1
+_FSDB_DECODE_XZ_MASK = 4
+
+
+def _npi_signal_width(npi_sig: NpiFsdbSignal) -> int:
+    """Return the total bit-width of an NPI signal.
+
+    ``NpiFsdbSignal.width()`` only supports non-composite signals; composite
+    widths are computed here by recursively summing leaf member widths.
+    """
+    if npi_sig.composite_type() is None:
+        return npi_sig.width()
+    members = npi_sig.member_list()
+    if not members:
+        raise ValueError(f"composite FSDB signal '{npi_sig.name()}' has no members")
+    return sum(_npi_signal_width(m) for m in members)
 
 
 @dataclass
@@ -59,7 +80,7 @@ class FsdbSignal(Signal):
         return cls(
             name=npi_sig.name(),
             full_name=full_name,
-            width=npi_sig.width(),
+            width=_npi_signal_width(npi_sig),
             range=npi_sig.range(),
             composite_type=composite_type,
             _npi_signal=npi_sig,
@@ -201,10 +222,8 @@ class FsdbReader(Reader):
         if end_time is not None and end_cycle is not None:
             raise ValueError('end_time and end_cycle are mutually exclusive')
 
-        if xz_mask:
-            raise NotImplementedError(
-                'xz_mask is not yet supported for FSDB reader'
-            )
+        if xz_value not in (0, 1):
+            raise ValueError(f'xz_value must be 0 or 1, got {xz_value}')
 
         signal_raw = signal.full_name if isinstance(signal, Signal) else signal
         bare_signal_path, requested_range = split_by_range_expr(signal_raw)
@@ -222,18 +241,33 @@ class FsdbReader(Reader):
             else self.file_handle.get_signal(clock_path)
         )
 
+        clock_width = _npi_signal_width(npi_clock)
+        signal_width = _npi_signal_width(npi_signal)
+
         # Always load the full clock to compute absolute cycle numbers
-        all_clock_changes = self.file_handle.load_value_change(
+        all_clock_changes = self.file_handle.load_value_change_mode(
             npi_clock,
-            begin_time=0,
-            end_time=2**64 - 1,
-            xz_value=0,
+            0,
+            2**64 - 1,
+            _FSDB_DECODE_VALUE_XZ_0,
+            clock_width,
         )
+
+        # Exclude clock edges contaminated by x/z (parity with the VCD reader)
+        clock_mask_changes = self.file_handle.load_value_change_mode(
+            npi_clock,
+            0,
+            2**64 - 1,
+            _FSDB_DECODE_XZ_MASK,
+            clock_width,
+        )
+        clock_xz = clock_mask_changes[:, 1:].any(axis=1)
 
         edge_mask, clock_edge_times = select_clock_edges(
             all_clock_changes,
             sample_on_posedge=sample_on_posedge,
-            clock_width=npi_clock.width(),
+            clock_width=clock_width,
+            clock_xz_mask=clock_xz,
             clock_name=clock_path,
         )
 
@@ -248,21 +282,14 @@ class FsdbReader(Reader):
         if end_cycle is not None:
             if not (0 <= end_cycle <= len(clock_edge_times)):
                 raise ValueError(
-                    f'end_cycle={end_cycle} out of range '
-                    f'(clock has {len(clock_edge_times)} edges)'
+                    f'end_cycle={end_cycle} out of range (clock has {len(clock_edge_times)} edges)'
                 )
             if end_cycle == len(clock_edge_times):
                 pass
             else:
                 end_time = int(clock_edge_times[end_cycle])
-        if (
-            begin_cycle is not None
-            and end_cycle is not None
-            and begin_cycle >= end_cycle
-        ):
-            raise ValueError(
-                f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}'
-            )
+        if begin_cycle is not None and end_cycle is not None and begin_cycle >= end_cycle:
+            raise ValueError(f'begin_cycle={begin_cycle} must be less than end_cycle={end_cycle}')
 
         begin_time_actual = begin_time if begin_time is not None else 0
         end_time_actual = end_time if end_time is not None else 2**64 - 1
@@ -279,22 +306,53 @@ class FsdbReader(Reader):
 
         # Load signal within the requested window only (FSDB NPI provides the
         # correct initial value at begin_time even if the last change was earlier)
-        signal_value_change = self.file_handle.load_value_change(
+        signal_value_change = self.file_handle.load_value_change_mode(
             npi_signal,
-            begin_time=begin_time_actual,
-            end_time=end_time_actual,
-            xz_value=xz_value,
+            begin_time_actual,
+            end_time_actual,
+            _FSDB_DECODE_VALUE_XZ_1 if xz_value else _FSDB_DECODE_VALUE_XZ_0,
+            signal_width,
         )
 
         full_wave = self.value_change_to_waveform(
             signal_value_change,
             windowed_clock_changes,
-            width=npi_signal.width(),
+            width=signal_width,
             signed=False,
             sample_on_posedge=sample_on_posedge,
             signal=bare_signal_path,
             clock_offset=clock_offset,
         )
+
+        # Attach x/z masking info if requested (parity with the VCD reader)
+        if xz_mask:
+            mask_changes = self.file_handle.load_value_change_mode(
+                npi_signal,
+                begin_time_actual,
+                end_time_actual,
+                _FSDB_DECODE_XZ_MASK,
+                signal_width,
+            )
+            mask_wave = self.value_change_to_waveform(
+                mask_changes,
+                windowed_clock_changes,
+                width=signal_width,
+                signed=False,
+                sample_on_posedge=sample_on_posedge,
+                signal='_xz_mask',
+                clock_offset=clock_offset,
+            )
+            range_match = (
+                re.fullmatch(r'\[(\d+)(?::(\d+))?\]', requested_range) if requested_range else None
+            )
+            if range_match is not None:
+                hi = int(range_match.group(1))
+                lo = int(range_match.group(2)) if range_match.group(2) is not None else hi
+                span = (1 << (hi - lo + 1)) - 1
+                flags = [((int(v) >> lo) & span) != 0 for v in mask_wave.value]
+            else:
+                flags = [int(v) != 0 for v in mask_wave.value]
+            full_wave.xz_mask = np.array(flags, dtype=np.bool_)
 
         # time_slice trims the garbage samples produced by clock edges before
         # begin_time (where the windowed signal data hasn't started yet)
@@ -306,21 +364,18 @@ class FsdbReader(Reader):
             m = re.fullmatch(r'\[(\d+)(?::(\d+))?\]', requested_range)
             if m is None:
                 raise ValueError(
-                    f"unsupported range access for signal '{bare_signal_path}': "
-                    f'{requested_range}'
+                    f"unsupported range access for signal '{bare_signal_path}': {requested_range}"
                 )
             high = int(m.group(1))
             low = int(m.group(2)) if m.group(2) is not None else high
-            full_width = npi_signal.width()
+            full_width = signal_width
             if low < 0:
                 raise ValueError(f'bit index {low} cannot be negative')
             if high < low:
-                raise ValueError(
-                    f'bit range {requested_range} invalid (high < low)'
-                )
+                raise ValueError(f'bit range {requested_range} invalid (high < low)')
             if high >= full_width:
                 raise ValueError(
-                    f"bit index {high} out of range for signal "
+                    f'bit index {high} out of range for signal '
                     f"'{bare_signal_path}' with width {full_width}"
                 )
             if high - low + 1 < full_width:
