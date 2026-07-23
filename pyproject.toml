@@ -16,7 +16,11 @@ pylibfst = { version = "^0.2.1", optional = true }
 fst = ["pylibfst"]
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.6.2"
+# The codebase is formatted/linted with ruff 0.15.x (e.g. the assert-message
+# formatting and pytest.importorskip E402 handling changed after 0.6.x). Pinning
+# CI to ^0.6.2 disagreed with the committed formatting; keep CI on the same 0.15
+# line so `ruff check`/`format --check` match local tooling.
+ruff = ">=0.15.0,<0.16"
 mypy = ">=1.11.2,<2.0"
 pytest = "^8.2.2"
 
