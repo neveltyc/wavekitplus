@@ -11,6 +11,13 @@ Conventions:
 
 * x/z bits serialize as the string ``'x'`` (the masked positions of a 4-state
   waveform); known values serialize as ``int``/``float``/``bool``/``list``.
+* Integers outside the IEEE-754 double / JavaScript safe range
+  (``±(2**53 - 1)``) serialize as **decimal strings** so a JSON consumer that
+  parses numbers as doubles (JavaScript ``Number``, ``jq``, …) does not silently
+  lose precision on wide (e.g. 64-bit) signal values.
+* Non-finite floats (``NaN`` / ``±inf``) serialize as ``None``; they are not
+  valid JSON and a strict parser (``json.dumps(..., allow_nan=False)``,
+  JavaScript ``JSON.parse``) would otherwise reject the payload.
 * Large results are truncated to ``max_samples`` / ``max_matches`` with a
   ``truncated`` flag, while the ``summary`` always reflects the *full* result.
 * Nothing here has side effects or requires a CLI; callers build the Waveform /
@@ -19,6 +26,7 @@ Conventions:
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -29,24 +37,45 @@ if TYPE_CHECKING:
     from .pattern.result import MatchResult
     from .waveform import Waveform
 
+# Largest integer that survives a round-trip through an IEEE-754 double, i.e.
+# JavaScript's Number.MAX_SAFE_INTEGER. Integers beyond ``±_JS_SAFE_INT`` are
+# emitted as strings to avoid silent precision loss in JSON consumers.
+_JS_SAFE_INT = (1 << 53) - 1
+
+
+def _coerce_int(value: int) -> Any:
+    """Return *value* as ``int`` if it fits a JS-safe double, else a decimal string."""
+    if -_JS_SAFE_INT <= value <= _JS_SAFE_INT:
+        return value
+    return str(value)
+
+
+def _coerce_float(value: float) -> Any:
+    """Return a finite float unchanged; map ``NaN`` / ``±inf`` to ``None`` (JSON-safe)."""
+    return value if math.isfinite(value) else None
+
 
 def _coerce(value: Any) -> Any:
     """Coerce a numpy / Python scalar (or nested list) to a JSON-safe value."""
     if isinstance(value, np.bool_):
         return bool(value)
     if isinstance(value, np.integer):
-        return int(value)
+        return _coerce_int(int(value))
     if isinstance(value, np.floating):
-        return float(value)
+        return _coerce_float(float(value))
     if isinstance(value, (list, tuple)):
         return [_coerce(v) for v in value]
     if isinstance(value, np.ndarray):
         return [_coerce(v) for v in value.tolist()]
     item = getattr(value, 'item', None)
     if callable(item):
-        return item()
-    if value is None or isinstance(value, (int, float, bool, str)):
+        return _coerce(item())
+    if value is None or isinstance(value, (bool, str)):
         return value
+    if isinstance(value, int):
+        return _coerce_int(value)
+    if isinstance(value, float):
+        return _coerce_float(value)
     return str(value)
 
 
@@ -92,11 +121,11 @@ def waveform_to_dict(
         When ``False``, emit only metadata + summary (no per-sample rows).
     """
     n = len(wf.value)
-    shown = n if max_samples is None else min(n, int(max_samples))
+    shown = n if max_samples is None else max(0, min(n, int(max_samples)))
     out: dict[str, Any] = {
         'name': wf.name,
         'width': wf.width,
-        'signed': bool(wf.signed) if wf.signed is not None else None,
+        'signed': bool(wf.signed),
         'length': n,
         'shown': shown,
         'truncated': shown < n,
@@ -143,7 +172,7 @@ def matchresult_to_dict(
     reflects the full result even when the per-match list is truncated.
     """
     n = len(mr)
-    shown = n if max_matches is None else min(n, int(max_matches))
+    shown = n if max_matches is None else max(0, min(n, int(max_matches)))
     starts = mr.start.value
     ends = mr.end.value
     durations = mr.duration.value
@@ -158,7 +187,7 @@ def matchresult_to_dict(
             'status': status,
             'status_name': _status_name(status),
         }
-        if include_captures and mr.captures:
+        if include_captures:
             entry['captures'] = {name: _value_at(wf, i) for name, wf in mr.captures.items()}
         matches.append(entry)
     return {

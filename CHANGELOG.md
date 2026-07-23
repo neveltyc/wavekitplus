@@ -4,22 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-### Added
-- **JSON serialization for `Waveform` and `MatchResult`** (`src/wavekit/serialize.py`).
-  New `to_dict()` / `summary()` methods emit plain, JSON-safe dicts so a caller —
-  e.g. an MCP protocol-analysis layer embedding wavekit — can return results
-  without touching numpy. x/z bits serialize as the string `'x'`; large results
-  truncate to `max_samples` / `max_matches` with a `truncated` flag while the
-  `summary` always reflects the full result. No CLI and no new dependencies;
-  results are built with the normal reader / pattern API.
-
-## Unreleased - upstream sync
-
 Selective sync from upstream [cxzzzz/wavekit](https://github.com/cxzzzz/wavekit)
 (fork base was upstream v0.6.1; synced up to upstream `fce7c62`, 2026-06).
 Upstream PR / commit references below point at the upstream repository.
 
 ### Added
+- **JSON serialization for `Waveform` and `MatchResult`** (`src/wavekit/serialize.py`,
+  local — not from upstream). New `to_dict()` / `summary()` methods emit plain,
+  JSON-safe dicts so a caller — e.g. an MCP protocol-analysis layer embedding
+  wavekit — can return results without touching numpy. x/z bits serialize as the
+  string `'x'`; integers beyond the JS safe-integer range (`±(2**53 - 1)`)
+  serialize as decimal strings and non-finite floats (`NaN` / `inf`) as `null`,
+  so a double-based JSON consumer keeps full precision and the payload stays
+  spec-valid. Large results truncate to `max_samples` / `max_matches` with a
+  `truncated` flag while the `summary` always reflects the full result. No CLI
+  and no new dependencies; results are built with the normal reader / pattern API.
 - **Programmable Pattern API** (upstream PR #17): pass an async handler to
   `Pattern(handler)` for dynamic branches, per-ID routing, and row-oriented
   records via `Pattern(...).collect()`; declarative and programmable styles

@@ -205,7 +205,11 @@ matches.summary()
 ```
 
 x/z samples serialize as the string `'x'`; over-large results truncate with a
-`truncated` flag while the `summary` always reflects the full result.
+`truncated` flag while the `summary` always reflects the full result. To stay
+portable across JSON consumers, integers beyond the JavaScript / IEEE-754 double
+safe range (`±(2**53 - 1)`) — e.g. wide 64-bit bus values — are emitted as
+decimal strings, and non-finite floats (`NaN` / `inf`) are emitted as `null`,
+so the payload keeps full precision and passes a strict parser.
 
 ## API notes
 
