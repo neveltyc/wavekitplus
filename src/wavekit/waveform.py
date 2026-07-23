@@ -127,6 +127,25 @@ class Waveform:
             ),
         )
 
+    def to_dict(
+        self, max_samples: int | None = 1024, include_values: bool = True
+    ) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict (metadata + summary + per-sample rows).
+
+        x/z samples serialize as ``'x'``; ``max_samples`` caps the row list (the
+        summary is unaffected). See :mod:`wavekit.serialize`.
+        """
+        from .serialize import waveform_to_dict
+
+        return waveform_to_dict(self, max_samples=max_samples, include_values=include_values)
+
+    def summary(self) -> dict[str, Any]:
+        """Compact JSON-safe stats (sample count, time/cycle span, value range,
+        x/z count) reflecting the full waveform."""
+        from .serialize import waveform_summary
+
+        return waveform_summary(self)
+
     @property
     def has_xz(self) -> bool:
         """True if this waveform carries 4-state (x/z) masking information."""

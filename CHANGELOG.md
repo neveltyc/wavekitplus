@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Added
+- **JSON serialization for `Waveform` and `MatchResult`** (`src/wavekit/serialize.py`).
+  New `to_dict()` / `summary()` methods emit plain, JSON-safe dicts so a caller —
+  e.g. an MCP protocol-analysis layer embedding wavekit — can return results
+  without touching numpy. x/z bits serialize as the string `'x'`; large results
+  truncate to `max_samples` / `max_matches` with a `truncated` flag while the
+  `summary` always reflects the full result. No CLI and no new dependencies;
+  results are built with the normal reader / pattern API.
+
 ## Unreleased - upstream sync
 
 Selective sync from upstream [cxzzzz/wavekit](https://github.com/cxzzzz/wavekit)

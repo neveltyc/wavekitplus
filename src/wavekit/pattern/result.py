@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from typing import Any
 
 import numpy as np
 
@@ -102,6 +103,22 @@ class MatchResult:
             status=self.status.mask(mask),
             captures={name: val.mask(mask) for name, val in self.captures.items()},
         )
+
+    def to_dict(
+        self, max_matches: int | None = 1024, include_captures: bool = True
+    ) -> dict[str, Any]:
+        """Serialize to a JSON-safe dict (per-match start/end/duration/status +
+        captures). ``max_matches`` caps the list; the summary reflects all
+        matches. See :mod:`wavekit.serialize`."""
+        from ..serialize import matchresult_to_dict
+
+        return matchresult_to_dict(self, max_matches=max_matches, include_captures=include_captures)
+
+    def summary(self) -> dict[str, Any]:
+        """Compact JSON-safe stats: total matches and per-status counts."""
+        from ..serialize import matchresult_summary
+
+        return matchresult_summary(self)
 
     def __len__(self) -> int:
         return len(self.start.value)

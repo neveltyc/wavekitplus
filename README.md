@@ -189,6 +189,24 @@ async def read_txn(ctx):
 records = Pattern(read_txn, timeout=64).collect()
 ```
 
+## JSON serialization
+
+`Waveform` and `MatchResult` serialize to plain, JSON-safe dicts for programmatic
+callers (e.g. an MCP layer) that must return results without numpy:
+
+```python
+wf = reader.load_waveform('tb.dut.state', 'tb.clk')
+wf.to_dict(max_samples=1024)   # {name, width, signed, length, truncated, summary, samples:[{time,cycle,value}]}
+wf.summary()                   # {samples, time/cycle span, value_min/max, xz_count}
+
+matches = Pattern().wait(valid & ready).match()
+matches.to_dict(max_matches=1024)  # {matches_total, status_counts, matches:[{start,end,duration,status,captures}]}
+matches.summary()
+```
+
+x/z samples serialize as the string `'x'`; over-large results truncate with a
+`truncated` flag while the `summary` always reflects the full result.
+
 ## API notes
 
 **scalar ** Waveform** is not supported. The result width depends on runtime data
